@@ -1,4 +1,4 @@
-package explore
+package writeflow
 
 import (
 	"context"
@@ -6,7 +6,10 @@ import (
 )
 
 func TestGoCMd(t *testing.T) {
-	c := GoCMD{}
+	c, err := NewGoPkgCMD(nil, "./_pkg", "examplegocmd", "examplegocmd.Exec")
+	if err != nil {
+		t.Fatal(err)
+	}
 	rr, err := c.Exec(context.Background(), []interface{}{"a", "b"})
 	if err != nil {
 		t.Fatal(err)
