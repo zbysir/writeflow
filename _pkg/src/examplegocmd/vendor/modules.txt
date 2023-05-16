@@ -1,6 +1,17 @@
 # github.com/samber/lo v1.38.1
 ## explicit; go 1.18
 github.com/samber/lo
+# github.com/traefik/yaegi v0.15.1
+## explicit; go 1.18
+github.com/traefik/yaegi/internal/unsafe2
+github.com/traefik/yaegi/interp
+github.com/traefik/yaegi/stdlib
+# github.com/zbysir/writeflow v0.0.0-20230516121429-55bc934e6c8a
+## explicit; go 1.20
+github.com/zbysir/writeflow
 # golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17
 ## explicit; go 1.18
 golang.org/x/exp/constraints
+# gopkg.in/yaml.v2 v2.4.0
+## explicit; go 1.15
+gopkg.in/yaml.v2

@@ -3,7 +3,7 @@ package examplegocmd
 import (
 	"context"
 	"github.com/samber/lo"
-	"github.com/zbysir/writeflow"
+	"github.com/zbysir/writeflow/pkg/schema"
 	"strings"
 )
 
@@ -16,10 +16,10 @@ func (c *Cmd) Exec(ctx context.Context, params []interface{}) (rsp []interface{}
 	return []interface{}{strings.Join(x, " + ")}, err
 }
 
-func (c *Cmd) Schema(ctx context.Context) writeflow.CMDSchema {
-	return CMDSchema{}
+func (c *Cmd) Schema(ctx context.Context) schema.CMDSchema {
+	return schema.CMDSchema{}
 }
 
-func NewCmd(config map[string]interface{}) (writeflow.CMDer, error) {
+func New(config map[string]interface{}) (schema.CMDer, error) {
 	return &Cmd{config: config}, nil
 }

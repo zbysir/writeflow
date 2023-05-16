@@ -5,26 +5,9 @@ import (
 	"fmt"
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
+	"github.com/zbysir/writeflow/pkg/schema"
 	"io/fs"
 )
-
-type CMDSchemaParams struct {
-	Key  string
-	Type string
-	Desc string
-}
-
-type CMDSchema struct {
-	Inputs  []CMDSchemaParams
-	Outputs []CMDSchemaParams
-	Name    string
-	Desc    string
-}
-
-type CMDer interface {
-	Exec(ctx context.Context, params []interface{}) (rsp []interface{}, err error)
-	Schema(ctx context.Context) CMDSchema
-}
 
 type funCMD struct {
 	f interface{}
@@ -33,11 +16,11 @@ type funCMD struct {
 func (f *funCMD) Exec(ctx context.Context, params []interface{}) (rsp []interface{}, err error) {
 	return execFunc(ctx, f.f, params)
 }
-func (f *funCMD) Schema(ctx context.Context) CMDSchema {
-	return CMDSchema{}
+func (f *funCMD) Schema(ctx context.Context) schema.CMDSchema {
+	return schema.CMDSchema{}
 }
 
-func FunCMD(fun interface{}) CMDer {
+func FunCMD(fun interface{}) schema.CMDer {
 	return &funCMD{f: fun}
 }
 
@@ -47,10 +30,10 @@ type GoPkgCMD struct {
 	packagePath  string // examplegocmd
 	execFuncName string // examplegocmd.Exec
 
-	innerCMD CMDer
+	innerCMD schema.CMDer
 }
 
-type NewCmd func(config map[string]interface{}) (CMDer, error)
+type NewCmd func(config map[string]interface{}) (schema.CMDer, error)
 
 func NewGoPkgCMD(fs fs.FS, goPath string, packagePath string, execFuncName string) (*GoPkgCMD, error) {
 	i := interp.New(interp.Options{
@@ -83,7 +66,7 @@ func NewGoPkgCMD(fs fs.FS, goPath string, packagePath string, execFuncName strin
 	return &GoPkgCMD{innerCMD: inner}, nil
 }
 
-func (g *GoPkgCMD) Schema(ctx context.Context) CMDSchema {
+func (g *GoPkgCMD) Schema(ctx context.Context) schema.CMDSchema {
 	return g.innerCMD.Schema(ctx)
 }
 

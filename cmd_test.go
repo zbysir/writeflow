@@ -6,7 +6,7 @@ import (
 )
 
 func TestGoCMd(t *testing.T) {
-	c, err := NewGoPkgCMD(nil, "./_pkg", "examplegocmd", "examplegocmd.Exec")
+	c, err := NewGoPkgCMD(nil, "./_pkg", "examplegocmd", "examplegocmd.New")
 	if err != nil {
 		t.Fatal(err)
 	}
