@@ -10,33 +10,17 @@ import (
 	"strings"
 )
 
-type ShelFlow struct {
+type WriteFlow struct {
 	cmds map[string]CMDer
 }
 
-type CMDer interface {
-	Exec(ctx context.Context, params []interface{}) (rsp []interface{}, err error)
-}
-
-type funCMD struct {
-	f interface{}
-}
-
-func (f *funCMD) Exec(ctx context.Context, params []interface{}) (rsp []interface{}, err error) {
-	return execFunc(ctx, f.f, params)
-}
-
-func FunCMD(fun interface{}) CMDer {
-	return &funCMD{f: fun}
-}
-
-func NewShelFlow() *ShelFlow {
-	return &ShelFlow{
+func NewShelFlow() *WriteFlow {
+	return &WriteFlow{
 		cmds: map[string]CMDer{},
 	}
 }
 
-func (f *ShelFlow) RegisterCmd(taskName string, fun CMDer) {
+func (f *WriteFlow) RegisterCmd(taskName string, fun CMDer) {
 	f.cmds[taskName] = fun
 }
 
@@ -195,7 +179,7 @@ func (j *YJob) ToJobDef(name string) JobDef {
 	}
 }
 
-func (f *ShelFlow) parseFlow(flow string) (FlowDef, error) {
+func (f *WriteFlow) parseFlow(flow string) (FlowDef, error) {
 	var flowDefI YFlow
 	err := yaml.Unmarshal([]byte(flow), &flowDefI)
 	if err != nil {
@@ -206,7 +190,7 @@ func (f *ShelFlow) parseFlow(flow string) (FlowDef, error) {
 	return def, nil
 }
 
-func (f *ShelFlow) ExecFlow(ctx context.Context, flow string, params []interface{}) (rsp []interface{}, err error) {
+func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params []interface{}) (rsp []interface{}, err error) {
 	f.RegisterCmd("_args", FunCMD(func(ctx context.Context) SpanInterface {
 		return params
 	}))

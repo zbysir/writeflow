@@ -1,0 +1,6 @@
+# github.com/samber/lo v1.38.1
+## explicit; go 1.18
+github.com/samber/lo
+# golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17
+## explicit; go 1.18
+golang.org/x/exp/constraints
