@@ -10,10 +10,12 @@ func TestGoCMd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rr, err := c.Exec(context.Background(), []interface{}{"a", "b"})
+	rr, err := c.Exec(context.Background(), map[string]interface{}{"__args": []interface{}{"a", "b"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	cs := c.Schema(context.Background())
 	t.Logf("%+v", rr)
+	t.Logf("%+v", cs)
 }

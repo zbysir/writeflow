@@ -7,19 +7,42 @@ import (
 	"strings"
 )
 
-type Cmd struct {
-	config map[string]interface{}
+type Config struct {
+	Name string
 }
 
-func (c *Cmd) Exec(ctx context.Context, params []interface{}) (rsp []interface{}, err error) {
-	x := lo.Map[interface{}, string](params, func(s interface{}, _ int) string { return s.(string) })
-	return []interface{}{strings.Join(x, " + ")}, err
+func CreateConfig() *Config {
+	return &Config{
+		Name: "bysir",
+	}
+}
+
+type Cmd struct {
+	config *Config
+}
+
+func (c *Cmd) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+	x := lo.Map[interface{}, string](params["__args"].([]interface{}), func(s interface{}, _ int) string { return s.(string) })
+	return map[string]interface{}{"default": strings.Join(x, " + ")}, err
 }
 
 func (c *Cmd) Schema(ctx context.Context) schema.CMDSchema {
-	return schema.CMDSchema{}
+	//s := new(schema.CMDSchema)
+	return schema.CMDSchema{
+		Inputs: []schema.CMDSchemaParams{
+			{
+
+				Key:  "__args",
+				Type: "[]any",
+				Desc: "",
+			},
+		},
+		Outputs: nil,
+		Name:    "ExampleGoCmd",
+		Desc:    "",
+	}
 }
 
-func New(config map[string]interface{}) (schema.CMDer, error) {
-	return &Cmd{config: config}, nil
+func New(c *Config) (schema.CMDer, error) {
+	return &Cmd{config: c}, nil
 }

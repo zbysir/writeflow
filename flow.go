@@ -4,33 +4,36 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/zbysir/writeflow/pkg/schema"
 	"gopkg.in/yaml.v2"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
 type WriteFlow struct {
-	cmds map[string]CMDer
+	cmds map[string]schema.CMDer
 }
 
 func NewShelFlow() *WriteFlow {
 	return &WriteFlow{
-		cmds: map[string]CMDer{},
+		cmds: map[string]schema.CMDer{},
 	}
 }
 
-func (f *WriteFlow) RegisterCmd(taskName string, fun CMDer) {
+func (f *WriteFlow) RegisterCmd(taskName string, fun schema.CMDer) {
 	f.cmds[taskName] = fun
 }
 
-func execFunc(ctx context.Context, fun interface{}, params []interface{}) (rsp []interface{}, err error) {
+func execFunc(ctx context.Context, fun interface{}, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 	callParams := []reflect.Value{reflect.ValueOf(ctx)}
 
 	for _, p := range params {
 		callParams = append(callParams, reflect.ValueOf(p))
 	}
 	funv := reflect.ValueOf(fun)
+
 	ty := funv.Type().NumIn()
 	for i := 0; i < ty; i++ {
 		wantp := funv.Type().In(i)
@@ -59,7 +62,7 @@ func execFunc(ctx context.Context, fun interface{}, params []interface{}) (rsp [
 	}
 
 	rv := funv.Call(callParams)
-
+	rsp = map[string]interface{}{}
 	var rerr error
 	l := len(rv)
 	for i, v := range rv {
@@ -73,10 +76,9 @@ func execFunc(ctx context.Context, fun interface{}, params []interface{}) (rsp [
 					continue
 				}
 			}
-
-			rsp = append(rsp, v.Interface())
+			rsp[strconv.Itoa(len(rsp))] = v.Interface()
 		} else {
-			rsp = append(rsp, v.Interface())
+			rsp[strconv.Itoa(len(rsp))] = v.Interface()
 		}
 	}
 
@@ -107,9 +109,9 @@ func execFunc(ctx context.Context, fun interface{}, params []interface{}) (rsp [
 type JobInput struct {
 	// _args[0]
 	JobName   string
-	RespIndex int
+	RespIndex string
 	// {a: _args[1]}
-	Object map[string]JobInput
+	//Object map[string]JobInput
 }
 
 type JobDef struct {
@@ -130,9 +132,9 @@ type YFlow struct {
 }
 
 type YJob struct {
-	Cmd     string        `yaml:"cmd"`
-	Inputs  []interface{} `yaml:"inputs"`
-	Depends []string      `yaml:"depends"`
+	Cmd     string                 `yaml:"cmd"`
+	Inputs  map[string]interface{} `yaml:"inputs"`
+	Depends []string               `yaml:"depends"`
 }
 
 func (f *YFlow) ToFlowDef() FlowDef {
@@ -152,19 +154,18 @@ func (j *YJob) ToJobDef(name string) JobDef {
 			// _args[1]
 			ss := strings.Split(item, "[")
 			taskName := ""
-			var respIndex int64
+			var respIndex string
 			if len(ss) == 2 {
 				taskName = ss[0]
-				respIndex, _ = strconv.ParseInt(ss[1][0:len(ss[1])-1], 10, 64)
+				respIndex = ss[1][0 : len(ss[1])-1]
 			} else {
 				taskName = ss[0]
-				respIndex = -1 // -1 表示就当成数值传递
+				respIndex = "default" // -1 表示就当成数值传递
 			}
 
 			inputs = append(inputs, JobInput{
 				JobName:   taskName,
-				RespIndex: int(respIndex),
-				Object:    nil,
+				RespIndex: respIndex,
 			})
 		case map[string]interface{}:
 			// {name: args[0]}
@@ -190,9 +191,9 @@ func (f *WriteFlow) parseFlow(flow string) (FlowDef, error) {
 	return def, nil
 }
 
-func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params []interface{}) (rsp []interface{}, err error) {
-	f.RegisterCmd("_args", FunCMD(func(ctx context.Context) SpanInterface {
-		return params
+func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+	f.RegisterCmd("_args", FunCMD(func(ctx context.Context) interface{} {
+		return params["_args"]
 	}))
 	def, err := f.parseFlow(flow)
 	if err != nil {
@@ -201,9 +202,8 @@ func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params []interfac
 
 	fr := FlowRun{
 		flowDef: def,
-		cmdRsp:  map[string][]interface{}{},
-		//args:    params,
-		cmd: f.cmds,
+		cmdRsp:  map[string]map[string]interface{}{},
+		cmd:     f.cmds,
 	}
 	rsp, err = fr.ExecJob(ctx, "END")
 	if err != nil {
@@ -214,71 +214,53 @@ func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params []interfac
 }
 
 type FlowRun struct {
-	cmd     map[string]CMDer
+	cmd     map[string]schema.CMDer
 	flowDef FlowDef
-	cmdRsp  map[string][]interface{}
-	//args    []interface{}
+	cmdRsp  map[string]map[string]interface{}
 }
 
-func (f *FlowRun) ExecJob(ctx context.Context, jobName string) (rsp []interface{}, err error) {
+func (f *FlowRun) ExecJob(ctx context.Context, jobName string) (rsp map[string]interface{}, err error) {
 	jobDef := f.flowDef.Jobs[jobName]
 	inputs := jobDef.Inputs
 
-	//log.Printf("exec: %s, inputs: %v", jobName, inputs)
-	dependValue := []interface{}{}
+	log.Printf("exec: %s, inputs: %v", jobName, inputs)
+	dependValue := map[string]interface{}{}
 	for _, i := range inputs {
 		var rsp interface{}
 		if f.cmdRsp[i.JobName] != nil {
 			//log.Printf("i.JobName %v: %+v", i.JobName, f.cmdRsp[i.JobName])
 			// cache
-			if i.RespIndex == -1 {
-				rsp = f.cmdRsp[i.JobName]
-			} else {
-				rsp = f.cmdRsp[i.JobName][i.RespIndex]
-			}
+			rsp = f.cmdRsp[i.JobName][i.RespIndex]
 		} else {
 			rsps, err := f.ExecJob(ctx, i.JobName)
 			if err != nil {
 				return nil, fmt.Errorf("exec task '%s' err: %v", i.JobName, err)
 			}
-			if len(rsps) == 1 {
-				// 特殊语法，展开第一个元素
-				switch rsps[0].(type) {
-				case SpanInterface:
-					rsps = rsps[0].(SpanInterface)
-				}
-			}
 
-			//log.Printf("i.rsps %v: %+v", i.JobName, rsps)
-			if i.RespIndex == -1 {
-				rsp = rsps
-			} else {
-				rsp = rsps[i.RespIndex]
-			}
+			rsp = rsps[i.RespIndex]
+
 			f.cmdRsp[i.JobName] = rsps
 		}
 
-		dependValue = append(dependValue, rsp)
+		dependValue[strconv.Itoa(len(dependValue))] = rsp
 	}
 
+	log.Printf("dependValue: %+v", dependValue)
 	cmd := jobDef.Cmd
 	if cmd == "" {
 		cmd = jobName
 	}
 	c, ok := f.cmd[cmd]
 	if ok {
-		rsp, err := execFunc(ctx, c, dependValue)
-		if err != nil {
-			return nil, fmt.Errorf("exec task '%s' err: %w", jobName, err)
-		}
+		rsp, err := c.Exec(ctx, dependValue)
+		//rsp, err := execFunc(ctx, c, dependValue)
+		//if err != nil {
+		//	return nil, fmt.Errorf("exec task '%s' err: %w", jobName, err)
+		//}
 
 		return rsp, err
 	} else {
 		return dependValue, nil
 	}
 
-}
-
-type Task interface {
-	Do(ctx context.Context, req []interface{}) (rsp []interface{}, err error)
 }

@@ -16,6 +16,6 @@ type CMDSchema struct {
 }
 
 type CMDer interface {
-	Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
+	Exec(ctx context.Context, params []interface{}) (rsp []interface{}, err error)
 	Schema(ctx context.Context) CMDSchema
 }
