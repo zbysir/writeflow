@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"gopkg.in/yaml.v2"
-	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -22,11 +21,16 @@ func NewShelFlow() *WriteFlow {
 	}
 }
 
-func (f *WriteFlow) RegisterCmd(taskName string, fun schema.CMDer) {
-	f.cmds[taskName] = fun
+func (f *WriteFlow) RegisterCmd(cmd schema.CMDer) {
+	key := cmd.Schema().Key
+	f.cmds[key] = cmd
 }
 
 func execFunc(ctx context.Context, fun interface{}, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+	if xfun, ok := fun.(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)); ok {
+		return xfun(ctx, params)
+	}
+
 	callParams := []reflect.Value{reflect.ValueOf(ctx)}
 
 	for _, p := range params {
@@ -110,6 +114,7 @@ type JobInput struct {
 	// _args[0]
 	JobName   string
 	RespIndex string
+	Key       string
 	// {a: _args[1]}
 	//Object map[string]JobInput
 }
@@ -148,7 +153,7 @@ func (f *YFlow) ToFlowDef() FlowDef {
 
 func (j *YJob) ToJobDef(name string) JobDef {
 	var inputs []JobInput
-	for _, item := range j.Inputs {
+	for key, item := range j.Inputs {
 		switch item := item.(type) {
 		case string:
 			// _args[1]
@@ -166,6 +171,7 @@ func (j *YJob) ToJobDef(name string) JobDef {
 			inputs = append(inputs, JobInput{
 				JobName:   taskName,
 				RespIndex: respIndex,
+				Key:       key,
 			})
 		case map[string]interface{}:
 			// {name: args[0]}
@@ -192,8 +198,10 @@ func (f *WriteFlow) parseFlow(flow string) (FlowDef, error) {
 }
 
 func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-	f.RegisterCmd("_args", FunCMD(func(ctx context.Context) interface{} {
-		return params["_args"]
+	f.RegisterCmd(FunCMD(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+		return params, nil
+	}).SetSchema(schema.CMDSchema{
+		Key: "INPUT",
 	}))
 	def, err := f.parseFlow(flow)
 	if err != nil {
@@ -213,6 +221,30 @@ func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params map[string
 	return
 }
 
+func (f *WriteFlow) GetCMDs(ctx context.Context, names []string) (rsp []schema.CMDSchema, err error) {
+	cmds := []schema.CMDer{}
+	namesMap := map[string]struct{}{}
+	for _, n := range names {
+		namesMap[n] = struct{}{}
+	}
+	for _, cmd := range f.cmds {
+		schema := cmd.Schema()
+		if len(namesMap) != 0 {
+			if _, ok := namesMap[schema.Key]; !ok {
+				continue
+			}
+		}
+
+		cmds = append(cmds, cmd)
+	}
+
+	for _, cmd := range cmds {
+		rsp = append(rsp, cmd.Schema())
+	}
+
+	return
+}
+
 type FlowRun struct {
 	cmd     map[string]schema.CMDer
 	flowDef FlowDef
@@ -223,7 +255,7 @@ func (f *FlowRun) ExecJob(ctx context.Context, jobName string) (rsp map[string]i
 	jobDef := f.flowDef.Jobs[jobName]
 	inputs := jobDef.Inputs
 
-	log.Printf("exec: %s, inputs: %v", jobName, inputs)
+	//log.Printf("exec: %s, inputs: %v", jobName, inputs)
 	dependValue := map[string]interface{}{}
 	for _, i := range inputs {
 		var rsp interface{}
@@ -242,10 +274,10 @@ func (f *FlowRun) ExecJob(ctx context.Context, jobName string) (rsp map[string]i
 			f.cmdRsp[i.JobName] = rsps
 		}
 
-		dependValue[strconv.Itoa(len(dependValue))] = rsp
+		dependValue[i.Key] = rsp
 	}
 
-	log.Printf("dependValue: %+v", dependValue)
+	//log.Printf("dependValue: %+v", dependValue)
 	cmd := jobDef.Cmd
 	if cmd == "" {
 		cmd = jobName
