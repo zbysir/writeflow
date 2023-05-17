@@ -1,4 +1,4 @@
-package writeflow
+package cmd
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestGoCMd(t *testing.T) {
-	c, err := NewGoPkgCMD(nil, "./_pkg", "examplegocmd")
+	c, err := NewGoPkg(nil, ".././_pkg", "examplegocmd")
 	if err != nil {
 		t.Fatal(err)
 	}

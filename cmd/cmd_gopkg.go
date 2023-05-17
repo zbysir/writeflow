@@ -1,4 +1,4 @@
-package writeflow
+package cmd
 
 import (
 	"context"
@@ -9,27 +9,6 @@ import (
 	"io/fs"
 	"reflect"
 )
-
-type funCMD struct {
-	f      interface{}
-	schema schema.CMDSchema
-}
-
-func (f *funCMD) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-	return execFunc(ctx, f.f, params)
-}
-func (f *funCMD) Schema() schema.CMDSchema {
-	return f.schema
-}
-
-func (f *funCMD) SetSchema(s schema.CMDSchema) *funCMD {
-	f.schema = s
-	return f
-}
-
-func FunCMD(fun interface{}) *funCMD {
-	return &funCMD{f: fun}
-}
 
 type GoPkgCMD struct {
 	innerCMD schema.CMDer
@@ -62,7 +41,7 @@ func Symbols() map[string]map[string]reflect.Value {
 	}
 }
 
-func NewGoPkgCMD(fs fs.FS, goPath string, packagePath string) (*GoPkgCMD, error) {
+func NewGoPkg(fs fs.FS, goPath string, packagePath string) (*GoPkgCMD, error) {
 	i := interp.New(interp.Options{
 		GoPath:               goPath,
 		SourcecodeFilesystem: fs,

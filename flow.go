@@ -2,12 +2,10 @@ package writeflow
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/zbysir/writeflow/cmd"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"gopkg.in/yaml.v2"
-	"reflect"
-	"strconv"
 	"strings"
 )
 
@@ -24,69 +22,6 @@ func NewShelFlow() *WriteFlow {
 func (f *WriteFlow) RegisterCmd(cmd schema.CMDer) {
 	key := cmd.Schema().Key
 	f.cmds[key] = cmd
-}
-
-func execFunc(ctx context.Context, fun interface{}, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-	if xfun, ok := fun.(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)); ok {
-		return xfun(ctx, params)
-	}
-
-	callParams := []reflect.Value{reflect.ValueOf(ctx)}
-
-	for _, p := range params {
-		callParams = append(callParams, reflect.ValueOf(p))
-	}
-	funv := reflect.ValueOf(fun)
-
-	ty := funv.Type().NumIn()
-	for i := 0; i < ty; i++ {
-		wantp := funv.Type().In(i)
-		inp := callParams[i].Type()
-
-		//fmt.Printf("wantp:%v, inp:%v %v\n", wantp.String(), inp.String(), inp.AssignableTo(wantp))
-
-		// TODO 如果目标是数组，则使用 Append 而不是直接赋值，来源可以支持数组 Item
-
-		// 如果类型不匹配，则尝试通过 json 转换
-		if !inp.AssignableTo(wantp) {
-			bs, _ := json.Marshal(callParams[i].Interface())
-			w := reflect.New(wantp)
-			err = json.Unmarshal(bs, w.Interface())
-			if err != nil {
-				return nil, fmt.Errorf("can not convert %v to %v, err: %w", inp.String(), wantp.String(), err)
-			}
-
-			callParams[i] = w.Elem()
-		}
-
-		//if wantp.String() == "[]string" && inp.String() == "[]interface {}" {
-		//	callParams[i] = reflect.ValueOf(interfaceTo[string](callParams[i].Interface().([]interface{})))
-		//}
-
-	}
-
-	rv := funv.Call(callParams)
-	rsp = map[string]interface{}{}
-	var rerr error
-	l := len(rv)
-	for i, v := range rv {
-		if i == l-1 {
-			last := v
-			switch last.Kind() {
-			case reflect.Interface:
-				err, ok := last.Interface().(error)
-				if ok {
-					rerr = err
-					continue
-				}
-			}
-			rsp[strconv.Itoa(len(rsp))] = v.Interface()
-		} else {
-			rsp[strconv.Itoa(len(rsp))] = v.Interface()
-		}
-	}
-
-	return rsp, rerr
 }
 
 // 所有的依赖可以并行计算。
@@ -198,7 +133,7 @@ func (f *WriteFlow) parseFlow(flow string) (FlowDef, error) {
 }
 
 func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-	f.RegisterCmd(FunCMD(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	f.RegisterCmd(cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 		return params, nil
 	}).SetSchema(schema.CMDSchema{
 		Key: "INPUT",
