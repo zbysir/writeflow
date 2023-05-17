@@ -2,6 +2,7 @@ package writeflow
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/zbysir/writeflow/cmd"
 	"github.com/zbysir/writeflow/pkg/schema"
@@ -51,5 +52,37 @@ flow:
 			t.Fatal(err)
 		}
 		assert.Equal(t, "hello: hello: zhang liang", rsp["default"])
+	})
+
+	t.Run("GetCMDs", func(t *testing.T) {
+		f := NewShelFlow()
+
+		f.RegisterCmd(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
+			return map[string]interface{}{"default": "hello: " + (params["name"].(string))}, nil
+		}).SetSchema(schema.CMDSchema{
+			Inputs: []schema.CMDSchemaParams{
+				{
+					Key:         "name",
+					Type:        "string",
+					NameLocales: nil,
+					DescLocales: nil,
+				},
+			},
+			Outputs: []schema.CMDSchemaParams{
+				{
+					Key:         "default",
+					Type:        "string",
+					NameLocales: nil,
+					DescLocales: nil,
+				},
+			},
+			Key:         "hello",
+			NameLocales: map[string]string{"zh": "Say Hello"},
+			DescLocales: map[string]string{"zh": "Append 'hello ' to name"},
+		}))
+
+		cmds, _ := f.GetCMDs(context.Background(), nil)
+		bs, _ := json.Marshal(cmds)
+		t.Logf("%s", bs)
 	})
 }

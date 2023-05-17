@@ -3,19 +3,18 @@ package schema
 import "context"
 
 type CMDSchemaParams struct {
-	Key         string
-	Type        string
-	NameLocales map[string]string
-	DescLocales map[string]string
+	Key         string            `json:"key"`
+	Type        string            `json:"type"`
+	NameLocales map[string]string `json:"name_locales,omitempty"`
+	DescLocales map[string]string `json:"desc_locales,omitempty"`
 }
 
 type CMDSchema struct {
-	Inputs      []CMDSchemaParams
-	Outputs     []CMDSchemaParams
-	Key         string
-	Name        string
-	NameLocales map[string]string
-	DescLocales map[string]string
+	Inputs      []CMDSchemaParams `json:"inputs"`
+	Outputs     []CMDSchemaParams `json:"outputs"`
+	Key         string            `json:"key"`
+	NameLocales map[string]string `json:"name_locales,omitempty"`
+	DescLocales map[string]string `json:"desc_locales,omitempty"`
 }
 
 type CMDer interface {
