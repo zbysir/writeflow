@@ -9,6 +9,12 @@ github.com/zbysir/writeflow v0.0.0-20230516121429-55bc934e6c8a h1:4EqgcdF0TY7RPE
 github.com/zbysir/writeflow v0.0.0-20230516121429-55bc934e6c8a/go.mod h1:+8gzUaol5qACd3gUCdTSV0ZFelx8uvP8ZnIAys/g238=
 github.com/zbysir/writeflow v0.0.0-20230516121811-a463b80f3cb7 h1:uM8+ve4DjYrfSn+LSb7NhFxRVJRpCbDwvBqpGaMTB1k=
 github.com/zbysir/writeflow v0.0.0-20230516121811-a463b80f3cb7/go.mod h1:+8gzUaol5qACd3gUCdTSV0ZFelx8uvP8ZnIAys/g238=
+github.com/zbysir/writeflow v0.0.0-20230516155547-c670cb9de439 h1:IdwBUv8wacg3laeZEvEOzPhdeSbtYkWXhFqO8mSxeKo=
+github.com/zbysir/writeflow v0.0.0-20230516155547-c670cb9de439/go.mod h1:+8gzUaol5qACd3gUCdTSV0ZFelx8uvP8ZnIAys/g238=
+github.com/zbysir/writeflow v0.0.0-20230517025801-5a09ba862639 h1:oVSSWyUHcYm6jrY8W+HVJWqTl7fJ/FzJyXsx2FXta3Q=
+github.com/zbysir/writeflow v0.0.0-20230517025801-5a09ba862639/go.mod h1:+8gzUaol5qACd3gUCdTSV0ZFelx8uvP8ZnIAys/g238=
+github.com/zbysir/writeflow v0.0.0-20230517030323-f00afdfbbab7 h1:WxiWBBthzE54f9czax4xl2jNCmbn3sNbYK02C9vUfVU=
+github.com/zbysir/writeflow v0.0.0-20230517030323-f00afdfbbab7/go.mod h1:+8gzUaol5qACd3gUCdTSV0ZFelx8uvP8ZnIAys/g238=
 golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 h1:3MTrJm4PyNL9NBqvYDSj3DHl46qQakyfqfWo4jgfaEM=
 golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17/go.mod h1:lgLbSvA5ygNOMpwM/9anMpWVlVJ7Z+cHWq/eFuinpGE=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=

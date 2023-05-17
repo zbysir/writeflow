@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/samber/lo v1.38.1
-	github.com/zbysir/writeflow v0.0.0-20230516121811-a463b80f3cb7
+	github.com/zbysir/writeflow v0.0.0-20230517030323-f00afdfbbab7
 )
 
 require (

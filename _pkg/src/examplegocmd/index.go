@@ -22,24 +22,29 @@ type Cmd struct {
 }
 
 func (c *Cmd) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-	x := lo.Map[interface{}, string](params["__args"].([]interface{}), func(s interface{}, _ int) string { return s.(string) })
+	x := lo.Map[interface{}, string](params["_args"].([]interface{}), func(s interface{}, _ int) string { return s.(string) })
 	return map[string]interface{}{"default": strings.Join(x, " + ")}, err
 }
 
-func (c *Cmd) Schema(ctx context.Context) schema.CMDSchema {
-	//s := new(schema.CMDSchema)
+func (c *Cmd) Schema() schema.CMDSchema {
 	return schema.CMDSchema{
 		Inputs: []schema.CMDSchemaParams{
 			{
-
-				Key:  "__args",
-				Type: "[]any",
-				Desc: "",
+				Key:         "_args",
+				Type:        "[]any",
+				DescLocales: map[string]string{},
 			},
 		},
-		Outputs: nil,
-		Name:    "ExampleGoCmd",
-		Desc:    "",
+		Outputs: []schema.CMDSchemaParams{
+			{
+
+				Key:         "default",
+				Type:        "string",
+				DescLocales: map[string]string{},
+			},
+		},
+		Name:        "ExampleGoCmd",
+		DescLocales: map[string]string{},
 	}
 }
 
