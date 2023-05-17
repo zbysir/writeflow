@@ -40,15 +40,15 @@ type NewCmd func(config map[string]interface{}) (schema.CMDer, error)
 type _CMDer struct {
 	IValue  interface{}
 	WExec   func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
-	WSchema func(ctx context.Context) schema.CMDSchema
+	WSchema func() schema.CMDSchema
 }
 
 func (p _CMDer) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 	return p.WExec(ctx, params)
 }
 
-func (p _CMDer) Schema(ctx context.Context) schema.CMDSchema {
-	return p.WSchema(ctx)
+func (p _CMDer) Schema() schema.CMDSchema {
+	return p.WSchema()
 }
 
 func Symbols() map[string]map[string]reflect.Value {

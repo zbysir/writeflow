@@ -5,16 +5,17 @@ import "context"
 type CMDSchemaParams struct {
 	Key         string
 	Type        string
-	NameLocales string
-	DescLocales string
+	NameLocales map[string]string
+	DescLocales map[string]string
 }
 
 type CMDSchema struct {
 	Inputs      []CMDSchemaParams
 	Outputs     []CMDSchemaParams
 	Key         string
-	NameLocales string
-	DescLocales string
+	Name        string
+	NameLocales map[string]string
+	DescLocales map[string]string
 }
 
 type CMDer interface {
