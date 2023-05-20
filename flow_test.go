@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/stretchr/testify/assert"
-	"github.com/zbysir/writeflow/cmd"
-	"github.com/zbysir/writeflow/pkg/schema"
+	"github.com/zbysir/writeflow/internal/cmd"
 	"strings"
 	"testing"
 )
@@ -14,15 +13,15 @@ func TestXFlow(t *testing.T) {
 	t.Run("base", func(t *testing.T) {
 		f := NewShelFlow()
 
-		f.RegisterCmd(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
+		f.RegisterComponent(NewComponent(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
 			return map[string]interface{}{"default": "hello: " + (params["name"].(string))}, nil
-		}).SetSchema(schema.CMDSchema{
+		}), cmd.Schema{
 			Key: "hello",
 		}))
 
-		f.RegisterCmd(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
+		f.RegisterComponent(NewComponent(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
 			return map[string]interface{}{"default": strings.Join(params["args"].([]string), " ")}, nil
-		}).SetSchema(schema.CMDSchema{
+		}), cmd.Schema{
 			Key: "append",
 		}))
 
@@ -57,10 +56,10 @@ flow:
 	t.Run("GetCMDs", func(t *testing.T) {
 		f := NewShelFlow()
 
-		f.RegisterCmd(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
+		f.RegisterComponent(NewComponent(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
 			return map[string]interface{}{"default": "hello: " + (params["name"].(string))}, nil
-		}).SetSchema(schema.CMDSchema{
-			Inputs: []schema.CMDSchemaParams{
+		}), cmd.Schema{
+			Inputs: []cmd.SchemaParams{
 				{
 					Key:         "name",
 					Type:        "string",
@@ -68,7 +67,7 @@ flow:
 					DescLocales: nil,
 				},
 			},
-			Outputs: []schema.CMDSchemaParams{
+			Outputs: []cmd.SchemaParams{
 				{
 					Key:         "default",
 					Type:        "string",

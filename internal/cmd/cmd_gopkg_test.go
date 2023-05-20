@@ -15,11 +15,11 @@ func TestGoCMd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cs := c.Schema()
-
-	for _, o := range cs.Outputs {
-		t.Logf("%+v(%s): %v", o.Key, o.Type, rr[o.Key])
-	}
-	//t.Logf("%+v", rr)
+	//cs := c.Schema()
+	//
+	//for _, o := range cs.Outputs {
+	//	t.Logf("%+v(%s): %v", o.Key, o.Type, rr[o.Key])
+	//}
+	t.Logf("%+v", rr)
 	//t.Logf("%+v", cs)
 }

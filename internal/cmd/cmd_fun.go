@@ -4,24 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/zbysir/writeflow/pkg/schema"
 	"reflect"
 	"strconv"
 )
 
 type funCMD struct {
 	f      interface{}
-	schema schema.CMDSchema
+	schema Schema
 }
 
 func (f *funCMD) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 	return execFunc(ctx, f.f, params)
 }
-func (f *funCMD) Schema() schema.CMDSchema {
+func (f *funCMD) Schema() Schema {
 	return f.schema
 }
 
-func (f *funCMD) SetSchema(s schema.CMDSchema) *funCMD {
+func (f *funCMD) SetSchema(s Schema) *funCMD {
 	f.schema = s
 	return f
 }

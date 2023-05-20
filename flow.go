@@ -3,24 +3,24 @@ package writeflow
 import (
 	"context"
 	"fmt"
-	"github.com/zbysir/writeflow/cmd"
+	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"gopkg.in/yaml.v2"
 	"strings"
 )
 
 type WriteFlow struct {
-	cmds map[string]schema.CMDer
+	cmds map[string]*Component
 }
 
 func NewShelFlow() *WriteFlow {
 	return &WriteFlow{
-		cmds: map[string]schema.CMDer{},
+		cmds: map[string]*Component{},
 	}
 }
 
-func (f *WriteFlow) RegisterCmd(cmd schema.CMDer) {
-	key := cmd.Schema().Key
+func (f *WriteFlow) RegisterComponent(cmd *Component) {
+	key := cmd.Schema.Key
 	f.cmds[key] = cmd
 }
 
@@ -133,9 +133,9 @@ func (f *WriteFlow) parseFlow(flow string) (FlowDef, error) {
 }
 
 func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-	f.RegisterCmd(cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	f.RegisterComponent(NewComponent(cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 		return params, nil
-	}).SetSchema(schema.CMDSchema{
+	}), cmd.Schema{
 		Key: "INPUT",
 	}))
 	def, err := f.parseFlow(flow)
@@ -143,10 +143,15 @@ func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params map[string
 		return nil, err
 	}
 
+	cmds := map[string]schema.CMDer{}
+	for k, v := range f.cmds {
+		cmds[k] = v.Cmder
+	}
+
 	fr := FlowRun{
 		flowDef: def,
 		cmdRsp:  map[string]map[string]interface{}{},
-		cmd:     f.cmds,
+		cmd:     cmds,
 	}
 	rsp, err = fr.ExecJob(ctx, "END")
 	if err != nil {
@@ -156,25 +161,9 @@ func (f *WriteFlow) ExecFlow(ctx context.Context, flow string, params map[string
 	return
 }
 
-func (f *WriteFlow) GetCMDs(ctx context.Context, names []string) (rsp []schema.CMDSchema, err error) {
-	cmds := []schema.CMDer{}
-	namesMap := map[string]struct{}{}
-	for _, n := range names {
-		namesMap[n] = struct{}{}
-	}
+func (f *WriteFlow) GetCMDs(ctx context.Context, names []string) (rsp []cmd.Schema, err error) {
 	for _, cmd := range f.cmds {
-		schema := cmd.Schema()
-		if len(namesMap) != 0 {
-			if _, ok := namesMap[schema.Key]; !ok {
-				continue
-			}
-		}
-
-		cmds = append(cmds, cmd)
-	}
-
-	for _, cmd := range cmds {
-		rsp = append(rsp, cmd.Schema())
+		rsp = append(rsp, cmd.Schema)
 	}
 
 	return

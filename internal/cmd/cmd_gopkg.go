@@ -17,26 +17,21 @@ type GoPkgCMD struct {
 type NewCmd func(config map[string]interface{}) (schema.CMDer, error)
 
 type _CMDer struct {
-	IValue  interface{}
-	WExec   func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
-	WSchema func() schema.CMDSchema
+	IValue interface{}
+	WExec  func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
 }
 
 func (p _CMDer) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 	return p.WExec(ctx, params)
 }
 
-func (p _CMDer) Schema() schema.CMDSchema {
-	return p.WSchema()
-}
-
 func Symbols() map[string]map[string]reflect.Value {
 	return map[string]map[string]reflect.Value{
 		"github.com/zbysir/writeflow/pkg/schema/schema": {
-			"CMDer":           reflect.ValueOf((*schema.CMDer)(nil)),
-			"_CMDer":          reflect.ValueOf((*_CMDer)(nil)),
-			"CMDSchema":       reflect.ValueOf((*schema.CMDSchema)(nil)),
-			"CMDSchemaParams": reflect.ValueOf((*schema.CMDSchemaParams)(nil)),
+			"CMDer":  reflect.ValueOf((*schema.CMDer)(nil)),
+			"_CMDer": reflect.ValueOf((*_CMDer)(nil)),
+			//"Schema":       reflect.ValueOf((*schema.Schema)(nil)),
+			//"SchemaParams": reflect.ValueOf((*schema.SchemaParams)(nil)),
 		},
 	}
 }
@@ -76,10 +71,6 @@ func NewGoPkg(fs fs.FS, goPath string, packagePath string) (*GoPkgCMD, error) {
 
 	inner := newFun.Call([]reflect.Value{reflect.ValueOf(config)})[0].Interface().(schema.CMDer)
 	return &GoPkgCMD{innerCMD: inner}, nil
-}
-
-func (g *GoPkgCMD) Schema() schema.CMDSchema {
-	return g.innerCMD.Schema()
 }
 
 func (g *GoPkgCMD) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
