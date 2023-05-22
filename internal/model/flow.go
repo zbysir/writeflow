@@ -71,16 +71,16 @@ type NodeInputParam struct {
 }
 
 type NodeData struct {
-	Label       string `json:"label"`
-	Id          string `json:"id"`
+	Label string `json:"label"`
+	//Id          string `json:"id"`
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	Category    string `json:"category"`
 	Icon        string `json:"icon"`
 	Description string `json:"description"`
 	//BaseClasses  []string          `json:"baseClasses"`
-	Inputs map[string]interface{} `json:"inputs"` // key -> response (node_id.output_key)
-	Source NodeSource             `json:"source"`
+	Inputs map[string]string `json:"inputs"` // key -> response (node_id.output_key)
+	Source NodeSource        `json:"source"`
 	//FilePath     string            `json:"filePath"`
 	InputAnchors  []NodeAnchor     `json:"inputAnchors"`
 	InputParams   []NodeInputParam `json:"inputParams"`

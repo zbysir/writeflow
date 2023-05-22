@@ -15,9 +15,8 @@ type GoScriptCMD struct {
 
 // src:
 // package examplegocmd
-// import "github.com/zbysir/writeflow/pkg/schema"
+// import "context"
 // func Exec(ctx context.Context, params []interface{}) (rsp []interface{}, err error) {}
-// func Schema() schema.Schema {}
 
 func NewGoScript(fs fs.FS, goPath string, src string) (*GoScriptCMD, error) {
 	i := interp.New(interp.Options{

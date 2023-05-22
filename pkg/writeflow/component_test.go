@@ -10,8 +10,8 @@ func TestComponentFromModel(t *testing.T) {
 		Id:  0,
 		Key: "demo",
 		Data: model.NodeData{
-			Label:       "",
-			Id:          "",
+			Label: "",
+			//Id:          "",
 			Name:        "",
 			Type:        "",
 			Category:    "",
