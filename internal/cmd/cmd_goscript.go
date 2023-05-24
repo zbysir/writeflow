@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
+	langchaingo "github.com/zbysir/writeflow/internal/cmd/gosymbols"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"io/fs"
 )
@@ -30,6 +31,10 @@ func NewGoScript(fs fs.FS, goPath string, src string) (*GoScriptCMD, error) {
 	}
 
 	err = i.Use(Symbols())
+	if err != nil {
+		return nil, err
+	}
+	err = i.Use(langchaingo.Symbols)
 	if err != nil {
 		return nil, err
 	}

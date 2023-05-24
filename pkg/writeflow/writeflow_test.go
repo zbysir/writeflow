@@ -210,5 +210,102 @@ func TestFromModelFlow(t *testing.T) {
 	rspDefault := rsp["default"]
 
 	assert.Equal(t, "hello: bysir", rspDefault)
+}
 
+func TestOpenAIFlow(t *testing.T) {
+	f, err := FromModelFlow(&model.Flow{
+		Id:          0,
+		Name:        "demo_flow",
+		Description: "",
+		Graph: model.Graph{
+			Nodes: []model.Node{
+				{
+					Id:   "openai",
+					Type: "openai",
+					Data: model.NodeData{
+						Inputs: map[string]string{"apikey": "xxx"},
+						InputParams: []model.NodeInputParam{
+							{Key: "apikey", Type: "string", Optional: false},
+							{Key: "base_url", Type: "string", Optional: false},
+						},
+						OutputAnchors: []model.NodeAnchor{
+							{Key: "default", Type: "llm", List: false},
+						},
+					},
+				},
+				{
+					Id:   "call",
+					Type: "call",
+					Data: model.NodeData{
+						Inputs: map[string]string{"query": "INPUT.query", "llm": "openai.default"},
+						InputAnchors: []model.NodeAnchor{
+							{Key: "query", Type: "string"},
+							{Key: "llm", Type: "llm"},
+						},
+						OutputAnchors: []model.NodeAnchor{
+							{Key: "default", Type: "string", List: false},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wf := NewWriteFlow()
+	// 如果要使用 llms.LLM interface，必须先注册
+	callLLM, err := cmd.NewGoScript(nil, "/Users/bysir/goproj/bysir/writeflow/_pkg", `package main
+						import (
+							"context"
+							"fmt"
+							"github.com/tmc/langchaingo/llms"
+					)
+	
+						func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+							query:=params["query"].(string)
+							l,_:=params["llm"].(llms.LLM)
+							rsps,err:=l.Call(ctx, query)
+							if err != nil {
+								return nil, err
+							}
+							return map[string]interface{}{"default": rsps}, nil
+						}
+						`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wf.RegisterComponent(NewComponent(callLLM, cmd.Schema{
+		Key: "call",
+	}))
+
+	newScript, err := cmd.NewGoScript(nil, "/Users/bysir/goproj/bysir/writeflow/_pkg", `package main
+					import (
+				
+				"context"
+				"fmt"
+"github.com/tmc/langchaingo/llms/openai"
+				)
+					func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+						llm, err := openai.New(openai.WithToken(params["apikey"].(string)))
+						if err != nil {	return nil, err}
+						return map[string]interface{}{"default": llm}, nil
+					}
+					`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wf.RegisterComponent(NewComponent(newScript, cmd.Schema{
+		Key: "openai",
+	}))
+
+	rsp, err := wf.ExecFlow(context.Background(), f, "call", map[string]interface{}{"query": "今天天气如何"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rspDefault := rsp["default"]
+
+	t.Logf("%v", rspDefault)
 }

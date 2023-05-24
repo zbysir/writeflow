@@ -213,6 +213,7 @@ func (f *runner) ExecJob(ctx context.Context, jobName string) (rsp map[string]in
 	jobDef := f.flowDef.Nodes[jobName]
 
 	inputs := jobDef.Inputs
+	//log.Printf("input %v: %+v", jobName, inputs)
 
 	dependValue := map[string]interface{}{}
 	for _, i := range inputs {
@@ -234,7 +235,6 @@ func (f *runner) ExecJob(ctx context.Context, jobName string) (rsp map[string]in
 
 				f.cmdRspCache[i.NodeId] = rsps
 			}
-
 		}
 
 		dependValue[i.Key] = value
@@ -246,11 +246,12 @@ func (f *runner) ExecJob(ctx context.Context, jobName string) (rsp map[string]in
 		cmd = jobName
 	}
 	c, ok := f.cmd[cmd]
-	if ok {
-		rsp, err := c.Exec(ctx, dependValue)
-		return rsp, err
-	} else {
-		return dependValue, nil
+	if !ok {
+		return nil, fmt.Errorf("cmd '%s' not found", cmd)
 	}
-
+	rsp, err = c.Exec(ctx, dependValue)
+	if err != nil {
+		return nil, fmt.Errorf("exec cmd '%s' err: %v", cmd, err)
+	}
+	return rsp, err
 }
