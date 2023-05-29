@@ -47,7 +47,7 @@ func ComponentFromModel(m *model.Component) (c Component, err error) {
 	var cmder schema.CMDer
 	switch m.Data.Source.CmdType {
 	case "go_script":
-		cmder, err = cmd.NewGoScript(nil, "", m.Data.Source.GoScript)
+		cmder, err = cmd.NewGoScript(nil, "", m.Data.Source.GoScript.Script)
 		if err != nil {
 			return
 		}

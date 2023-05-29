@@ -8,8 +8,71 @@ import (
 	"github.com/zbysir/writeflow/internal/model"
 )
 
+// BoltDBFlow 基于 boltdb 的实现，实际上它不是数据库，所以不支持太大的数据量。
 type BoltDBFlow struct {
 	store store.Store
+}
+
+func (b *BoltDBFlow) GetComponentList(ctx context.Context, params GetFlowListParams) (cs []model.Component, total int64, err error) {
+	kv, err := b.store.List("component")
+	if err != nil {
+		if err == store.ErrKeyNotFound {
+			return nil, 0, nil
+		}
+		return nil, 0, fmt.Errorf("store.List error: %w", err)
+	}
+
+	for i, item := range kv {
+		if i < params.Offset {
+			continue
+		}
+		flow := model.Component{}
+		err = json.Unmarshal(item.Value, &flow)
+		if err != nil {
+			err = fmt.Errorf("json.Unmarshal error: %w", err)
+			return nil, 0, err
+		}
+
+		cs = append(cs, flow)
+		if len(cs) >= params.Limit {
+			break
+		}
+	}
+
+	return cs, int64(len(kv)), nil
+}
+
+func (b *BoltDBFlow) GetFlowList(ctx context.Context, params GetFlowListParams) (fs []model.Flow, total int64, err error) {
+	kv, err := b.store.List("/flow")
+	if err != nil {
+		if err == store.ErrKeyNotFound {
+			return nil, 0, nil
+		}
+		return nil, 0, err
+	}
+
+	for i, item := range kv {
+		if i < params.Offset {
+			continue
+		}
+		flow := model.Flow{}
+		err = json.Unmarshal(item.Value, &flow)
+		if err != nil {
+			err = fmt.Errorf("json.Unmarshal error: %w", err)
+			return nil, 0, err
+		}
+
+		fs = append(fs, flow)
+		if len(fs) >= params.Limit {
+			break
+		}
+	}
+
+	return fs, int64(len(kv)), nil
+}
+
+func NewBoltDBFlow(store store.Store) *BoltDBFlow {
+	return &BoltDBFlow{store: store}
 }
 
 var _ Flow = (*BoltDBFlow)(nil)
@@ -18,11 +81,17 @@ func (b *BoltDBFlow) IdSeq(namespace string) (id int64, err error) {
 	// todo add lock
 	kv, err := b.store.Get("id_seq/" + namespace)
 	if err != nil {
-		return 0, err
+		if err == store.ErrKeyNotFound {
+			err = nil
+		} else {
+			return 0, fmt.Errorf("get id_seq error: %w", err)
+		}
 	}
-	err = json.Unmarshal(kv.Value, &id)
-	if err != nil {
-		return 0, err
+	if kv != nil {
+		err = json.Unmarshal(kv.Value, &id)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	id = id + 1

@@ -25,27 +25,6 @@ func (f *WriteFlow) RegisterComponent(cmd *Component) {
 	f.cmds[key] = cmd
 }
 
-// 所有的依赖可以并行计算。
-// 这是通过代码逻辑不好描述的
-//
-// appendName-1:
-//   cmd: appendName
-//   input:
-//     - _args[0]
-//     - _args[1]
-// hello:
-//   cmd: hello
-//   input:
-//     - appendName-1[0]
-//
-// END:
-//   input:
-//     - hello[0]
-
-// flow: 流程定义
-// job: flow 由 多个 job 组成
-// cmd: job 可以调用 cmd
-
 type NodeInput struct {
 	Key         string
 	Type        string // anchor, literal
@@ -55,22 +34,23 @@ type NodeInput struct {
 }
 
 type Node struct {
-	Id           string
-	ComponentKey string
-	Inputs       []NodeInput
+	Id            string
+	ComponentType string
+	Inputs        []NodeInput
 }
 
 type Flow struct {
-	Nodes map[string]Node // node id -> node
+	Nodes        map[string]Node // node id -> node
+	OutputNodeId string
 }
 
-func (d *Flow) UsedComponents() (componentKeys []string) {
+func (d *Flow) UsedComponents() (componentType []string) {
 	for _, v := range d.Nodes {
-		componentKeys = append(componentKeys, v.ComponentKey)
+		componentType = append(componentType, v.ComponentType)
 	}
-	componentKeys = lo.Uniq(componentKeys)
+	componentType = lo.Uniq(componentType)
 
-	return componentKeys
+	return componentType
 }
 
 func FromModelFlow(m *model.Flow) (*Flow, error) {
@@ -107,66 +87,18 @@ func FromModelFlow(m *model.Flow) (*Flow, error) {
 		}
 
 		nodes[node.Id] = Node{
-			Id:           node.Id,
-			ComponentKey: node.Type,
-			Inputs:       inputs,
+			Id:            node.Id,
+			ComponentType: node.Type,
+			Inputs:        inputs,
 		}
 	}
 	return &Flow{
-		Nodes: nodes,
+		Nodes:        nodes,
+		OutputNodeId: m.Graph.GetOutputNodeId(),
 	}, nil
 }
 
-// SpanInterface 特殊语法，返回值
-type SpanInterface []interface{}
-
-type YFlow struct {
-	Version string          `yaml:"version"`
-	Flow    map[string]YJob `yaml:"flow"`
-}
-
-type YJob struct {
-	Cmd     string                 `yaml:"cmd"`
-	Inputs  map[string]interface{} `yaml:"inputs"`
-	Depends []string               `yaml:"depends"`
-}
-
-func (j *YJob) ToJobDef(name string) Node {
-	var inputs []NodeInput
-	for key, item := range j.Inputs {
-		switch item := item.(type) {
-		case string:
-			// _args[1]
-			ss := strings.Split(item, ".")
-			taskName := ""
-			var respField string
-			if len(ss) == 2 {
-				taskName = ss[0]
-				respField = ss[1]
-			} else {
-				taskName = ss[0]
-				respField = "default"
-			}
-
-			inputs = append(inputs, NodeInput{
-				NodeId:      taskName,
-				ResponseKey: respField,
-				Key:         key,
-			})
-		case map[string]interface{}:
-			// {name: args[0]}
-			// TODO object
-		}
-	}
-
-	return Node{
-		Id:           name,
-		ComponentKey: j.Cmd,
-		Inputs:       inputs,
-	}
-}
-
-func (f *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, outputNodeId string, initParams map[string]interface{}) (rsp map[string]interface{}, err error) {
+func (f *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}) (rsp map[string]interface{}, err error) {
 	// use INPUT node to get init params
 	f.RegisterComponent(NewComponent(cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 		return initParams, nil
@@ -177,7 +109,7 @@ func (f *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, outputNodeId strin
 	for k, v := range f.cmds {
 		cmds[k] = v.Cmder
 	}
-
+	outputNodeId := flow.OutputNodeId
 	if outputNodeId == "" {
 		outputNodeId = "OUTPUT"
 	}
@@ -241,7 +173,7 @@ func (f *runner) ExecJob(ctx context.Context, jobName string) (rsp map[string]in
 	}
 
 	//log.Printf("dependValue: %+v", dependValue)
-	cmd := jobDef.ComponentKey
+	cmd := jobDef.ComponentType
 	if cmd == "" {
 		cmd = jobName
 	}

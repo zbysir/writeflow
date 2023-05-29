@@ -7,24 +7,16 @@ import (
 
 func TestComponentFromModel(t *testing.T) {
 	m, err := ComponentFromModel(&model.Component{
-		Id:  0,
 		Key: "demo",
-		Data: model.NodeData{
-			Label: "",
+		Data: model.ComponentData{
 			//Id:          "",
-			Name:        "",
-			Type:        "",
-			Category:    "",
-			Icon:        "",
-			Description: "",
-			Inputs:      nil,
-			Source: model.NodeSource{
+			Source: model.ComponentSource{
 				Type:    "",
 				CmdType: "go_script",
 				GitUrl:  "",
-				GoScript: `package main
+				GoScript: model.ComponentGoScript{Script: `package main
 					import (
-				
+
 				"context"
 				"fmt"
 				)
@@ -33,6 +25,7 @@ func TestComponentFromModel(t *testing.T) {
 						return map[string]interface{}{"msg": fmt.Sprintf("hello %v, your age is: %v", params["name"], params["age"])}, nil
 					}
 					`,
+				},
 			},
 			InputAnchors: []model.NodeAnchor{
 				{
@@ -66,7 +59,6 @@ func TestComponentFromModel(t *testing.T) {
 					List: false,
 				},
 			},
-			Selected: false,
 		},
 	})
 	if err != nil {

@@ -17,40 +17,65 @@ type Flow struct {
 }
 
 type Component struct {
-	Id  int64  `json:"id"`
-	Key string `json:"key"`
-
-	Data NodeData `json:"data"`
+	Id       int64         `json:"id"`
+	Key      string        `json:"key"`      // 组件类型，需要全局唯一
+	Category string        `json:"category"` // category key
+	Data     ComponentData `json:"data"`
 }
 
 type Graph struct {
-	Nodes []Node `json:"nodes"`
-	//Edges []Edge `json:"edges"`
+	Nodes        Nodes  `json:"nodes"`
+	OutputNodeId string `json:"output_node_id"` // 指定节点的输出为整个流程的输出，如果不指定，则将会找到 Nodes 中 Id = OUTPUT 的节点作为输出。
 }
 
+func (g *Graph) GetOutputNodeId() string {
+	if g.OutputNodeId != "" {
+		return g.OutputNodeId
+	}
+	n, ok := g.Nodes.FindById("OUTPUT")
+	if ok {
+		return n.Id
+	}
+	return "OUTPUT"
+}
+
+type Nodes []Node
+
+// FindById 根据 id 找到 node
+func (n Nodes) FindById(id string) (*Node, bool) {
+	for _, v := range n {
+		if v.Id == id {
+			return &v, true
+		}
+	}
+	return nil, false
+}
+
+type NodePosition struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+// Node 是 Component 的实例
 type Node struct {
-	Width    int    `json:"width"`
-	Height   int    `json:"height"`
-	Id       string `json:"id"`
-	Position struct {
-		X int `json:"x"`
-		Y int `json:"y"`
-	} `json:"position"`
-	Type             string   `json:"type"` // = component.Key
-	Data             NodeData `json:"data"`
-	PositionAbsolute struct {
-		X int `json:"x"`
-		Y int `json:"y"`
-	} `json:"positionAbsolute"`
-	Selected bool `json:"selected"`
-	Dragging bool `json:"dragging"`
+	Id               string       `json:"id"` // 前段自己生成，随意，保证画布中不重复就行。
+	Width            int          `json:"width"`
+	Height           int          `json:"height"`
+	Position         NodePosition `json:"position"`
+	Type             string       `json:"type"` // = Component.Key
+	Data             NodeData     `json:"data"`
+	PositionAbsolute NodePosition `json:"positionAbsolute"`
 }
 
-type NodeSource struct {
-	Type     string `json:"type"`     // local / git
-	CmdType  string `json:"cmd_type"` // go_script / go_pkg
-	GitUrl   string `json:"gitUrl"`
-	GoScript string `json:"go_script"`
+type ComponentGoScript struct {
+	Script string `json:"script"`
+}
+
+type ComponentSource struct {
+	Type     string            `json:"type"`     // local / git
+	CmdType  string            `json:"cmd_type"` // go_script / go_pkg
+	GitUrl   string            `json:"gitUrl"`
+	GoScript ComponentGoScript `json:"go_script"`
 }
 
 type NodeAnchor struct {
@@ -71,19 +96,16 @@ type NodeInputParam struct {
 }
 
 type NodeData struct {
-	Label string `json:"label"`
-	//Id          string `json:"id"`
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Category    string `json:"category"`
-	Icon        string `json:"icon"`
-	Description string `json:"description"`
-	//BaseClasses  []string          `json:"baseClasses"`
+	ComponentData
 	Inputs map[string]string `json:"inputs"` // key -> response (node_id.output_key)
-	Source NodeSource        `json:"source"`
-	//FilePath     string            `json:"filePath"`
-	InputAnchors  []NodeAnchor     `json:"inputAnchors"`
-	InputParams   []NodeInputParam `json:"inputParams"`
-	OutputAnchors []NodeAnchor     `json:"outputAnchors"`
-	Selected      bool             `json:"selected"`
+}
+
+type ComponentData struct {
+	Name          map[string]string `json:"name"`
+	Icon          string            `json:"icon"`
+	Description   map[string]string `json:"description"`
+	Source        ComponentSource   `json:"source"`
+	InputAnchors  []NodeAnchor      `json:"inputAnchors"`  // 输入锚点定义
+	InputParams   []NodeInputParam  `json:"inputParams"`   // 字面参数定义
+	OutputAnchors []NodeAnchor      `json:"outputAnchors"` // 输出锚点定义
 }

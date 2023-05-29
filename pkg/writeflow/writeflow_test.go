@@ -28,10 +28,11 @@ func TestXFlow(t *testing.T) {
 		}))
 
 		rsp, err := f.ExecFlow(context.Background(), &Flow{
+			OutputNodeId: "END",
 			Nodes: map[string]Node{
 				"hello1": {
-					Id:           "hello1",
-					ComponentKey: "hello",
+					Id:            "hello1",
+					ComponentType: "hello",
 					Inputs: []NodeInput{
 						{
 							Key:         "name",
@@ -43,8 +44,8 @@ func TestXFlow(t *testing.T) {
 					},
 				},
 				"hello2": {
-					Id:           "hello2",
-					ComponentKey: "hello",
+					Id:            "hello2",
+					ComponentType: "hello",
 					Inputs: []NodeInput{
 						{
 							Key:         "name",
@@ -56,8 +57,8 @@ func TestXFlow(t *testing.T) {
 					},
 				},
 				"append": {
-					Id:           "append",
-					ComponentKey: "append",
+					Id:            "append",
+					ComponentType: "append",
 					Inputs: []NodeInput{
 						{
 							Key:         "args",
@@ -69,8 +70,8 @@ func TestXFlow(t *testing.T) {
 					},
 				},
 				"END": {
-					Id:           "END",
-					ComponentKey: "",
+					Id:            "END",
+					ComponentType: "",
 					Inputs: []NodeInput{
 						{
 							Key:         "default",
@@ -82,7 +83,7 @@ func TestXFlow(t *testing.T) {
 					},
 				},
 			},
-		}, "END", map[string]interface{}{"_args": []string{"zhang", "liang"}})
+		}, map[string]interface{}{"_args": []string{"zhang", "liang"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -139,51 +140,44 @@ func TestFromModelFlow(t *testing.T) {
 					}{},
 					Type: "hello_component",
 					Data: model.NodeData{
-						Label: "",
-						//Id:           "hello",
-						Name:         "",
-						Type:         "",
-						Category:     "",
-						Icon:         "",
-						Description:  "",
-						Inputs:       map[string]string{"name": "bysir", "age": "18"},
-						Source:       model.NodeSource{},
-						InputAnchors: nil,
-						InputParams: []model.NodeInputParam{
-							{
-								Id:       "",
-								Name:     nil,
-								Key:      "name",
-								Type:     "string",
-								Optional: false,
+						ComponentData: model.ComponentData{
+							Source:       model.ComponentSource{},
+							InputAnchors: nil,
+							InputParams: []model.NodeInputParam{
+								{
+									Id:       "",
+									Name:     nil,
+									Key:      "name",
+									Type:     "string",
+									Optional: false,
+								},
+								{
+									Id:       "",
+									Name:     nil,
+									Key:      "age",
+									Type:     "int",
+									Optional: false,
+								},
 							},
-							{
-								Id:       "",
-								Name:     nil,
-								Key:      "age",
-								Type:     "int",
-								Optional: false,
-							},
-						},
-						OutputAnchors: []model.NodeAnchor{
-							{
-								Id:   "",
-								Name: nil,
-								Key:  "default",
-								Type: "string",
-								List: false,
+							OutputAnchors: []model.NodeAnchor{
+								{
+									Id:   "",
+									Name: nil,
+									Key:  "default",
+									Type: "string",
+									List: false,
+								},
 							},
 						},
-						Selected: false,
+						Inputs: map[string]string{"name": "bysir", "age": "18"},
 					},
 					PositionAbsolute: struct {
 						X int `json:"x"`
 						Y int `json:"y"`
 					}{},
-					Selected: false,
-					Dragging: false,
 				},
 			},
+			OutputNodeId: "hello",
 		},
 		CreatedAt: time.Time{},
 		UpdatedAt: time.Time{},
@@ -202,7 +196,7 @@ func TestFromModelFlow(t *testing.T) {
 		Key: "hello_component",
 	}))
 
-	rsp, err := wf.ExecFlow(context.Background(), f, "hello", map[string]interface{}{"name": "bysir"})
+	rsp, err := wf.ExecFlow(context.Background(), f, map[string]interface{}{"name": "bysir"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,18 +212,21 @@ func TestOpenAIFlow(t *testing.T) {
 		Name:        "demo_flow",
 		Description: "",
 		Graph: model.Graph{
+			OutputNodeId: "call",
 			Nodes: []model.Node{
 				{
 					Id:   "openai",
 					Type: "openai",
 					Data: model.NodeData{
-						Inputs: map[string]string{"apikey": "xxx"},
-						InputParams: []model.NodeInputParam{
-							{Key: "apikey", Type: "string", Optional: false},
-							{Key: "base_url", Type: "string", Optional: false},
-						},
-						OutputAnchors: []model.NodeAnchor{
-							{Key: "default", Type: "llm", List: false},
+						Inputs: map[string]string{"apikey": "sk-xx"},
+						ComponentData: model.ComponentData{
+							InputParams: []model.NodeInputParam{
+								{Key: "apikey", Type: "string", Optional: false},
+								{Key: "base_url", Type: "string", Optional: false},
+							},
+							OutputAnchors: []model.NodeAnchor{
+								{Key: "default", Type: "llm", List: false},
+							},
 						},
 					},
 				},
@@ -238,12 +235,14 @@ func TestOpenAIFlow(t *testing.T) {
 					Type: "call",
 					Data: model.NodeData{
 						Inputs: map[string]string{"query": "INPUT.query", "llm": "openai.default"},
-						InputAnchors: []model.NodeAnchor{
-							{Key: "query", Type: "string"},
-							{Key: "llm", Type: "llm"},
-						},
-						OutputAnchors: []model.NodeAnchor{
-							{Key: "default", Type: "string", List: false},
+						ComponentData: model.ComponentData{
+							InputAnchors: []model.NodeAnchor{
+								{Key: "query", Type: "string"},
+								{Key: "llm", Type: "llm"},
+							},
+							OutputAnchors: []model.NodeAnchor{
+								{Key: "default", Type: "string", List: false},
+							},
 						},
 					},
 				},
@@ -300,7 +299,7 @@ func TestOpenAIFlow(t *testing.T) {
 		Key: "openai",
 	}))
 
-	rsp, err := wf.ExecFlow(context.Background(), f, "call", map[string]interface{}{"query": "今天天气如何"})
+	rsp, err := wf.ExecFlow(context.Background(), f, map[string]interface{}{"query": "特斯拉是谁"})
 	if err != nil {
 		t.Fatal(err)
 	}

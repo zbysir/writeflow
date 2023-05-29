@@ -1,1 +1,3 @@
 /.idea
+/internal/repo/testdata/db.boltdb
+/data/
