@@ -9,6 +9,6 @@ RUN chmod +x writeflow
 
 FROM registry.cn-hangzhou.aliyuncs.com/bysir/alpine-shanghai:latest
 
-COPY --from=builder /go/src/app/hollow /
+COPY --from=builder /go/src/app/writeflow /
 
 ENTRYPOINT ["/writeflow"]
