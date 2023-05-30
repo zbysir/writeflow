@@ -64,7 +64,7 @@ type Node struct {
 	Position         NodePosition `json:"position"`
 	Type             string       `json:"type"` // = Component.Key
 	Data             NodeData     `json:"data"`
-	PositionAbsolute NodePosition `json:"positionAbsolute"`
+	PositionAbsolute NodePosition `json:"position_absolute,omitempty"`
 }
 
 type ComponentGoScript struct {
@@ -72,25 +72,25 @@ type ComponentGoScript struct {
 }
 
 type ComponentSource struct {
-	Type     string            `json:"type"`     // local / git
+	Type     string            `json:"type"`     // local / git / builtin
 	CmdType  string            `json:"cmd_type"` // go_script / go_pkg
-	GitUrl   string            `json:"gitUrl"`
+	GitUrl   string            `json:"git_url"`
 	GoScript ComponentGoScript `json:"go_script"`
 }
 
 type NodeAnchor struct {
-	Id   string            `json:"id"`
-	Name map[string]string `json:"label"`
-	Key  string            `json:"name"`
-	Type string            `json:"type"`           // 数据模型，如 string / int / any
-	List bool              `json:"list,omitempty"` // 是否是数组
-
+	Id       string            `json:"id"`
+	Name     map[string]string `json:"name"`
+	Key      string            `json:"key"`
+	Type     string            `json:"type"`           // 数据模型，如 string / int / any
+	List     bool              `json:"list,omitempty"` // 是否是数组
+	Optional bool              `json:"optional,omitempty"`
 }
 
 type NodeInputParam struct {
 	Id       string            `json:"id"`
-	Name     map[string]string `json:"label"`
-	Key      string            `json:"name"`
+	Name     map[string]string `json:"name"`
+	Key      string            `json:"key"`
 	Type     string            `json:"type"` // 数据模型，如 string / int / any
 	Optional bool              `json:"optional,omitempty"`
 }
@@ -105,7 +105,7 @@ type ComponentData struct {
 	Icon          string            `json:"icon"`
 	Description   map[string]string `json:"description"`
 	Source        ComponentSource   `json:"source"`
-	InputAnchors  []NodeAnchor      `json:"inputAnchors"`  // 输入锚点定义
-	InputParams   []NodeInputParam  `json:"inputParams"`   // 字面参数定义
-	OutputAnchors []NodeAnchor      `json:"outputAnchors"` // 输出锚点定义
+	InputAnchors  []NodeAnchor      `json:"input_anchors"`  // 输入锚点定义
+	InputParams   []NodeInputParam  `json:"input_params"`   // 字面参数定义
+	OutputAnchors []NodeAnchor      `json:"output_anchors"` // 输出锚点定义
 }

@@ -16,7 +16,12 @@ type WriteFlow struct {
 
 func NewWriteFlow() *WriteFlow {
 	return &WriteFlow{
-		cmds: map[string]*Component{},
+		cmds: map[string]*Component{
+			// Echo is a builtin component, it will return the input params.
+			"Echo": NewComponent(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+				return params, nil
+			}), cmd.Schema{}),
+		},
 	}
 }
 
@@ -29,7 +34,7 @@ type NodeInput struct {
 	Key         string
 	Type        string // anchor, literal
 	Literal     string // format: node_id.response_key
-	NodeId      string
+	NodeId      string // anchor node id
 	ResponseKey string
 }
 
@@ -53,7 +58,7 @@ func (d *Flow) UsedComponents() (componentType []string) {
 	return componentType
 }
 
-func FromModelFlow(m *model.Flow) (*Flow, error) {
+func FlowFromModel(m *model.Flow) (*Flow, error) {
 	nodes := map[string]Node{}
 
 	for _, node := range m.Graph.Nodes {
@@ -75,6 +80,9 @@ func FromModelFlow(m *model.Flow) (*Flow, error) {
 			if len(ss) > 1 {
 				nodeId = ss[0]
 				responseKey = ss[1]
+			}
+			if nodeId == "" && !input.Optional {
+				return nil, fmt.Errorf("input '%v' for node '%v' is not defined", input.Key, node.Id)
 			}
 
 			inputs = append(inputs, NodeInput{
@@ -105,6 +113,7 @@ func (f *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, initParams map[str
 	}), cmd.Schema{
 		Key: "INPUT",
 	}))
+
 	cmds := map[string]schema.CMDer{}
 	for k, v := range f.cmds {
 		cmds[k] = v.Cmder
@@ -154,6 +163,10 @@ func (f *runner) ExecJob(ctx context.Context, jobName string) (rsp map[string]in
 		case "literal":
 			value = i.Literal
 		case "anchor":
+			if i.NodeId == "" {
+				// 如果节点 id 为空，则说明是非必填字段。
+				continue
+			}
 			if f.cmdRspCache[i.NodeId] != nil {
 				//log.Printf("i.NodeId %v: %+v", i.NodeId, f.cmdRspCache[i.NodeId])
 				value = f.cmdRspCache[i.NodeId][i.ResponseKey]

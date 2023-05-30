@@ -124,7 +124,7 @@ func TestXFlow(t *testing.T) {
 }
 
 func TestFromModelFlow(t *testing.T) {
-	f, err := FromModelFlow(&model.Flow{
+	f, err := FlowFromModel(&model.Flow{
 		Id:          0,
 		Name:        "demo_flow",
 		Description: "",
@@ -207,7 +207,7 @@ func TestFromModelFlow(t *testing.T) {
 }
 
 func TestOpenAIFlow(t *testing.T) {
-	f, err := FromModelFlow(&model.Flow{
+	f, err := FlowFromModel(&model.Flow{
 		Id:          0,
 		Name:        "demo_flow",
 		Description: "",

@@ -13,7 +13,25 @@ type BoltDBFlow struct {
 	store store.Store
 }
 
-func (b *BoltDBFlow) GetComponentList(ctx context.Context, params GetFlowListParams) (cs []model.Component, total int64, err error) {
+func (b *BoltDBFlow) DeleteComponent(ctx context.Context, key string) (err error) {
+	err = b.store.Delete(fmt.Sprintf("component/%v", key))
+	if err != nil {
+		return fmt.Errorf("store.Delete error: %w", err)
+	}
+
+	return nil
+}
+
+func (b *BoltDBFlow) DeleteFlow(ctx context.Context, id int64) (err error) {
+	err = b.store.Delete(fmt.Sprintf("flow/%d", id))
+	if err != nil {
+		return fmt.Errorf("store.Delete error: %w", err)
+	}
+
+	return nil
+}
+
+func (b *BoltDBFlow) GetComponentList(ctx context.Context, params GetFlowListParams) (cs []model.Component, total int, err error) {
 	kv, err := b.store.List("component")
 	if err != nil {
 		if err == store.ErrKeyNotFound {
@@ -39,11 +57,11 @@ func (b *BoltDBFlow) GetComponentList(ctx context.Context, params GetFlowListPar
 		}
 	}
 
-	return cs, int64(len(kv)), nil
+	return cs, len(kv), nil
 }
 
-func (b *BoltDBFlow) GetFlowList(ctx context.Context, params GetFlowListParams) (fs []model.Flow, total int64, err error) {
-	kv, err := b.store.List("/flow")
+func (b *BoltDBFlow) GetFlowList(ctx context.Context, params GetFlowListParams) (fs []model.Flow, total int, err error) {
+	kv, err := b.store.List("flow")
 	if err != nil {
 		if err == store.ErrKeyNotFound {
 			return nil, 0, nil
@@ -68,7 +86,7 @@ func (b *BoltDBFlow) GetFlowList(ctx context.Context, params GetFlowListParams) 
 		}
 	}
 
-	return fs, int64(len(kv)), nil
+	return fs, len(kv), nil
 }
 
 func NewBoltDBFlow(store store.Store) *BoltDBFlow {
@@ -102,6 +120,7 @@ func (b *BoltDBFlow) IdSeq(namespace string) (id int64, err error) {
 
 	return id, nil
 }
+
 func (b *BoltDBFlow) GetFlowById(ctx context.Context, id int64) (flow *model.Flow, exist bool, err error) {
 	kv, err := b.store.Get(fmt.Sprintf("flow/%v", id))
 	if err != nil {
@@ -119,6 +138,8 @@ func (b *BoltDBFlow) GetFlowById(ctx context.Context, id int64) (flow *model.Flo
 		return nil, false, err
 	}
 
+	exist = true
+
 	return
 }
 
@@ -127,6 +148,10 @@ func (b *BoltDBFlow) GetComponentByKeys(ctx context.Context, keys []string) (com
 	for _, key := range keys {
 		kv, err := b.store.Get("component/key/" + key)
 		if err != nil {
+			if err == store.ErrKeyNotFound {
+				err = nil
+				continue
+			}
 			return nil, err
 		}
 		if kv == nil {
@@ -163,12 +188,13 @@ func (b *BoltDBFlow) CreateComponent(ctx context.Context, component *model.Compo
 	return
 }
 
-func (b *BoltDBFlow) CreateFlow(ctx context.Context, component *model.Flow) (err error) {
-	bs, err := json.Marshal(component)
+func (b *BoltDBFlow) CreateFlow(ctx context.Context, fl *model.Flow) (err error) {
+	id, err := b.IdSeq("flow")
 	if err != nil {
 		return err
 	}
-	id, err := b.IdSeq("flow")
+	fl.Id = id
+	bs, err := json.Marshal(fl)
 	if err != nil {
 		return err
 	}

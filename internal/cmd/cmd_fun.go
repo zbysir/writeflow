@@ -9,7 +9,7 @@ import (
 )
 
 type funCMD struct {
-	f      interface{}
+	f      func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
 	schema Schema
 }
 
@@ -25,7 +25,7 @@ func (f *funCMD) SetSchema(s Schema) *funCMD {
 	return f
 }
 
-func NewFun(fun interface{}) *funCMD {
+func NewFun(fun func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)) *funCMD {
 	return &funCMD{f: fun}
 }
 

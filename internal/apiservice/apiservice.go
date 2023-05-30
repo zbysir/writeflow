@@ -9,6 +9,7 @@ import (
 	"github.com/zbysir/writeflow/internal/pkg/httpsrv"
 	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/internal/repo"
+	"github.com/zbysir/writeflow/internal/usecase"
 	"net/http"
 )
 
@@ -18,11 +19,12 @@ type Config struct {
 type ApiService struct {
 	config Config
 
-	flowRepo repo.Flow
+	flowRepo    repo.Flow
+	flowUsecase *usecase.Flow
 }
 
 func NewApiService(config Config, flowRepo repo.Flow) *ApiService {
-	return &ApiService{config: config, flowRepo: flowRepo}
+	return &ApiService{config: config, flowRepo: flowRepo, flowUsecase: usecase.NewFlow(flowRepo)}
 }
 
 func Cors() gin.HandlerFunc {
@@ -57,8 +59,6 @@ func ErrorHandler() gin.HandlerFunc {
 		c.Next()
 		for _, e := range c.Errors {
 			err := e.Err
-			log.Infof("3 %v", err)
-
 			code := 400
 			if errors.Is(err, AuthErr) {
 				code = 401
@@ -157,7 +157,7 @@ func (a *ApiService) Run(ctx context.Context, addr string) (err error) {
 
 	apiAuth := api.Use(Auth(a.config.Secret))
 
-	a.RegisterRepo(apiAuth)
+	a.RegisterFlow(apiAuth)
 
 	s, err := httpsrv.NewService(addr)
 	if err != nil {
