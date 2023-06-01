@@ -8,25 +8,25 @@ import (
 	"strconv"
 )
 
-type funCMD struct {
+type funCmd struct {
 	f      func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
 	schema Schema
 }
 
-func (f *funCMD) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+func (f *funCmd) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 	return execFunc(ctx, f.f, params)
 }
-func (f *funCMD) Schema() Schema {
+func (f *funCmd) Schema() Schema {
 	return f.schema
 }
 
-func (f *funCMD) SetSchema(s Schema) *funCMD {
+func (f *funCmd) SetSchema(s Schema) *funCmd {
 	f.schema = s
 	return f
 }
 
-func NewFun(fun func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)) *funCMD {
-	return &funCMD{f: fun}
+func NewFun(fun func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)) *funCmd {
+	return &funCmd{f: fun}
 }
 
 func execFunc(ctx context.Context, fun interface{}, params map[string]interface{}) (rsp map[string]interface{}, err error) {

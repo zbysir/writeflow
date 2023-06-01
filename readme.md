@@ -1,15 +1,22 @@
 使用配置描述多个任务的依赖关系。
+
+## 相似产品
+- [Concepts](https://conductor.netflix.com/devguide/concepts/index.html)
+- [Flowise](https://github.com/FlowiseAI/Flowise)
+- [PostMan Flow](https://learning.postman.com/docs/postman-flows/gs/flows-overview/)
 ## 特性
 
 > 目前大部份特性都待开发。
 
-- 可配置多个节点的参数关系
-- 支持并行节点
+- 节点之间可以通过“连线”方式链接来描述输入输出关系。
+- 默认尽可能的并行节点。
 - 所以节点逻辑都是 Golang 代码，支持直接编辑来热更新节点。
-  - 可以考虑 JS，不过通常 Golang 更容易管理些，不用再去下载其他包（管理包的功能很难），自带包就能满足需求。
+  - 可以考虑 JS，不过通常 Golang 更容易管理些，不用再去下载其他包（很难管理包），自带包就能满足需求。
 - 应用市场: 支持任何 Golang Github 仓库作为应用，支持热插拔，基于 [yaegi](https://github.com/traefik/yaegi)。
-- 节点之间可以通过“插座”或者“连线”方式链接。
-- 节点自己不会携带输入，应该使用 输入节点 来定义任何输入。
+  - 支持按照模块 或者 Worker 来安装扩展
+
+### 暂时不会做的事
+- 管理 Task 状态，实现优雅重启、重试等。你可以理解目前 writeflow 是内存型工作流。
 
 ## 目标场景
 
@@ -70,22 +77,21 @@ inputs 和 depends 可以同时使用。inputs 会被 depend 更先执行。
 
 默认情况下依赖任务会并行执行，你可以通过配置: parallel 来定义可以并行执行的任务数量，默认为 10.
 
+## 概念
+
+### Flow
+Flow 定义一个工作流，一个 Flow 由多个 Node 组成，Node 之间通过连线来描述输入输出关系。
+
+### Node
+Node 是一个节点，多个节点组成 Flow，Node 由 Component 实例化而来，保存了如位置、输入输出等信息。
+
+### Component
+Component 保存了名称、描述、Cmd 等信息，Component 是 Node 的模板。
+
+#### Cmd
+Cmd 是 Component 的运行命令，支持 Golang 代码、远端。
+
 ## 边界
-
-### 类型转换
-
-除了使用 CMDer 接口来定义 CMD，你也可以直接使用 CMDFun 来定义 CMD。它通过反射来调用方法，更适用于简单场景。
-
-使用 CMDFun 时你需要尽量保证 flow 定义的输入类型和函数的参数类型一致，如果不一致 writeflow 会尽量帮你做类型转换：
-
-| 输入类型     | CMD 输入类型 | 是否支持                  |
-|----------|----------|-----------------------|
-| string   | int      | No                    |
-| string   | any      | Yes                   |
-| any      | string   | 当 any 是 string 时才支持   |
-| struct{} | struct{} | 将通过 json copy 的方式尝试装换 |
-
-你也可以通过 配置：objectConversion 来自定义类型转换器。
 
 ### 错误处理
 每个 CMD 都可以返回 error, 有任何一个 CMD 产生 error 都会停止整个流程的调度，你可以通过配置 : retry, 来配置重试策略，默认会重试 3 次。

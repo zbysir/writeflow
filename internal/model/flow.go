@@ -52,8 +52,8 @@ func (n Nodes) FindById(id string) (*Node, bool) {
 }
 
 type NodePosition struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 // Node 是 Component 的实例
