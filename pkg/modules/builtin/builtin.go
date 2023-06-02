@@ -76,6 +76,14 @@ func (b *Builtin) Components() []model.Component {
 						Optional: true,
 					},
 				},
+				OutputAnchors: []model.NodeAnchor{
+					{
+						Key:      "default",
+						Type:     "string",
+						List:     false,
+						Optional: false,
+					},
+				},
 			},
 		},
 		{
@@ -106,7 +114,7 @@ func (b *Builtin) Components() []model.Component {
 		{
 			Id:       0,
 			Key:      "select",
-			Category: "input",
+			Category: "data",
 			Data: model.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "通过路径选择数据",
@@ -119,8 +127,6 @@ func (b *Builtin) Components() []model.Component {
 				},
 				InputAnchors: []model.NodeAnchor{
 					{
-						Id:       "",
-						Name:     nil,
 						Key:      "data",
 						Type:     "any",
 						List:     false,
@@ -129,11 +135,32 @@ func (b *Builtin) Components() []model.Component {
 				},
 				InputParams: []model.NodeInputParam{
 					{
-						Id:       "",
-						Name:     nil,
 						Key:      "path",
 						Type:     "string",
 						Optional: true,
+					},
+				},
+			},
+		}, {
+			Id:       0,
+			Key:      "record",
+			Category: "data",
+			Data: model.ComponentData{
+				Name: map[string]string{
+					"zh-CN": "组合多个数据为一个集合",
+				},
+				Source: model.ComponentSource{
+					CmdType:    model.BuiltInCmd,
+					BuiltinCmd: "raw",
+				},
+				InputAnchors: []model.NodeAnchor{},
+				InputParams:  []model.NodeInputParam{},
+				OutputAnchors: []model.NodeAnchor{
+					{
+						Key:      "default",
+						Type:     "any",
+						List:     false,
+						Optional: false,
 					},
 				},
 			},
