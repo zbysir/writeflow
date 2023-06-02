@@ -26,9 +26,7 @@ func TestComponent(t *testing.T) {
 			Icon:        "",
 			Description: nil,
 			Source: model.ComponentSource{
-				Type:    "",
 				CmdType: "",
-				GitUrl:  "",
 				GoScript: model.ComponentGoScript{
 					Script: "package main;",
 				},

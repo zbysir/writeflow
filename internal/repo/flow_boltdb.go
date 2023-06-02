@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/docker/libkv/store"
 	"github.com/zbysir/writeflow/internal/model"
+	"time"
 )
 
 // BoltDBFlow 基于 boltdb 的实现，实际上它不是数据库，所以不支持太大的数据量。
@@ -124,6 +125,9 @@ func (b *BoltDBFlow) IdSeq(namespace string) (id int64, err error) {
 func (b *BoltDBFlow) GetFlowById(ctx context.Context, id int64) (flow *model.Flow, exist bool, err error) {
 	kv, err := b.store.Get(fmt.Sprintf("flow/%v", id))
 	if err != nil {
+		if err == store.ErrKeyNotFound {
+			return nil, false, nil
+		}
 		return nil, false, err
 	}
 
@@ -194,11 +198,40 @@ func (b *BoltDBFlow) CreateFlow(ctx context.Context, fl *model.Flow) (err error)
 		return err
 	}
 	fl.Id = id
+	now := time.Now()
+	fl.UpdatedAt = now
+	fl.CreatedAt = now
 	bs, err := json.Marshal(fl)
 	if err != nil {
 		return err
 	}
 	err = b.store.Put(fmt.Sprintf("flow/%v", id), bs, nil)
+	if err != nil {
+		return err
+	}
+
+	return
+}
+
+func (b *BoltDBFlow) UpdateFlow(ctx context.Context, fl *model.Flow) (err error) {
+	if fl.Id == 0 {
+		return fmt.Errorf("id is empty")
+	}
+	existFlow, exist, err := b.GetFlowById(ctx, fl.Id)
+	if err != nil {
+		return err
+	}
+	if !exist {
+		return fmt.Errorf("flow not exist")
+	}
+
+	fl.CreatedAt = existFlow.CreatedAt
+
+	bs, err := json.Marshal(fl)
+	if err != nil {
+		return err
+	}
+	err = b.store.Put(fmt.Sprintf("flow/%v", fl.Id), bs, nil)
 	if err != nil {
 		return err
 	}

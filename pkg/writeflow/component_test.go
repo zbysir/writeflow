@@ -6,14 +6,12 @@ import (
 )
 
 func TestComponentFromModel(t *testing.T) {
-	m, err := ComponentFromModel(&model.Component{
+	cmd, m, err := ComponentFromModel(&model.Component{
 		Key: "demo",
 		Data: model.ComponentData{
 			//Id:          "",
 			Source: model.ComponentSource{
-				Type:    "",
-				CmdType: "go_script",
-				GitUrl:  "",
+				CmdType: model.GoScriptCmd,
 				GoScript: model.ComponentGoScript{Script: `package main
 					import (
 
@@ -60,14 +58,14 @@ func TestComponentFromModel(t *testing.T) {
 				},
 			},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	//t.Logf("%+v", m)
 
-	r, err := m.Cmder.Exec(nil, map[string]interface{}{
+	r, err := cmd.Exec(nil, map[string]interface{}{
 		"name": "bysir",
 		"age":  18,
 	})
@@ -75,7 +73,7 @@ func TestComponentFromModel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, out := range m.Schema.Outputs {
+	for _, out := range m.Outputs {
 		t.Logf("%v: %v", out.Key, r[out.Key])
 	}
 }

@@ -6,16 +6,7 @@ import (
 	"github.com/zbysir/writeflow/pkg/schema"
 )
 
-type Component struct {
-	Cmder  schema.CMDer
-	Schema cmd.Schema
-}
-
-func NewComponent(cmder schema.CMDer, schema cmd.Schema) *Component {
-	return &Component{Cmder: cmder, Schema: schema}
-}
-
-func ComponentFromModel(m *model.Component) (c Component, err error) {
+func ComponentFromModel(m *model.Component, builtinCmd map[string]schema.CMDer) (cmder schema.CMDer, sc cmd.Schema, err error) {
 	var input []cmd.SchemaParams
 	for _, a := range m.Data.InputAnchors {
 		input = append(input, cmd.SchemaParams{
@@ -44,22 +35,20 @@ func ComponentFromModel(m *model.Component) (c Component, err error) {
 		})
 	}
 
-	var cmder schema.CMDer
 	switch m.Data.Source.CmdType {
 	case "go_script":
 		cmder, err = cmd.NewGoScript(nil, "", m.Data.Source.GoScript.Script)
 		if err != nil {
 			return
 		}
+	case "builtin":
+		cmder = builtinCmd[m.Data.Source.BuiltinCmd]
 	}
 
-	c = Component{
-		Schema: cmd.Schema{
-			Key:     m.Key,
-			Inputs:  input,
-			Outputs: output,
-		},
-		Cmder: cmder,
+	sc = cmd.Schema{
+		Key:     m.Key,
+		Inputs:  input,
+		Outputs: output,
 	}
 
 	return

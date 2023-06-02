@@ -2,7 +2,6 @@ package writeflow
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
@@ -15,70 +14,66 @@ func TestXFlow(t *testing.T) {
 	t.Run("base", func(t *testing.T) {
 		f := NewWriteFlow()
 
-		f.RegisterComponent(NewComponent(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
+		f.RegisterCmd("hello", cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
 			return map[string]interface{}{"default": "hello: " + (params["name"].(string))}, nil
-		}), cmd.Schema{
-			Key: "hello",
 		}))
 
-		f.RegisterComponent(NewComponent(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
+		f.RegisterCmd("append", cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
 			return map[string]interface{}{"default": strings.Join(params["args"].([]string), " ")}, nil
-		}), cmd.Schema{
-			Key: "append",
 		}))
 
 		rsp, err := f.ExecFlow(context.Background(), &Flow{
 			OutputNodeId: "END",
 			Nodes: map[string]Node{
 				"hello1": {
-					Id:            "hello1",
-					ComponentType: "hello",
+					Id:  "hello1",
+					Cmd: "hello",
 					Inputs: []NodeInput{
 						{
-							Key:         "name",
-							Type:        "anchor",
-							Literal:     "",
-							NodeId:      "hello2",
-							ResponseKey: "default",
+							Key:       "name",
+							Type:      "anchor",
+							Literal:   "",
+							NodeId:    "hello2",
+							OutputKey: "default",
 						},
 					},
 				},
 				"hello2": {
-					Id:            "hello2",
-					ComponentType: "hello",
+					Id:  "hello2",
+					Cmd: "hello",
 					Inputs: []NodeInput{
 						{
-							Key:         "name",
-							Type:        "anchor",
-							Literal:     "",
-							NodeId:      "append",
-							ResponseKey: "default",
+							Key:       "name",
+							Type:      "anchor",
+							Literal:   "",
+							NodeId:    "append",
+							OutputKey: "default",
 						},
 					},
 				},
 				"append": {
-					Id:            "append",
-					ComponentType: "append",
+					Id:  "append",
+					Cmd: "append",
 					Inputs: []NodeInput{
 						{
-							Key:         "args",
-							Type:        "anchor",
-							Literal:     "",
-							NodeId:      "INPUT",
-							ResponseKey: "_args",
+							Key:       "args",
+							Type:      "anchor",
+							Literal:   "",
+							NodeId:    "INPUT",
+							OutputKey: "_args",
 						},
 					},
 				},
 				"END": {
-					Id:            "END",
-					ComponentType: "",
+					Id:  "END",
+					Cmd: "",
 					Inputs: []NodeInput{
 						{
-							Key:         "default",
-							Type:        "anchor",
-							Literal:     "",
-							NodeId:      "hello1",
-							ResponseKey: "default",
+							Key:       "default",
+							Type:      "anchor",
+							Literal:   "",
+							NodeId:    "hello1",
+							OutputKey: "default",
 						},
 					},
 				},
@@ -88,38 +83,6 @@ func TestXFlow(t *testing.T) {
 			t.Fatal(err)
 		}
 		assert.Equal(t, "hello: hello: zhang liang", rsp["default"])
-	})
-
-	t.Run("GetCMDs", func(t *testing.T) {
-		f := NewWriteFlow()
-
-		f.RegisterComponent(NewComponent(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
-			return map[string]interface{}{"default": "hello: " + (params["name"].(string))}, nil
-		}), cmd.Schema{
-			Inputs: []cmd.SchemaParams{
-				{
-					Key:         "name",
-					Type:        "string",
-					NameLocales: nil,
-					DescLocales: nil,
-				},
-			},
-			Outputs: []cmd.SchemaParams{
-				{
-					Key:         "default",
-					Type:        "string",
-					NameLocales: nil,
-					DescLocales: nil,
-				},
-			},
-			Key:         "hello",
-			NameLocales: map[string]string{"zh": "Say Hello"},
-			DescLocales: map[string]string{"zh": "Append 'hello ' to name"},
-		}))
-
-		cmds, _ := f.GetCMDs(context.Background(), nil)
-		bs, _ := json.Marshal(cmds)
-		t.Logf("%s", bs)
 	})
 }
 
@@ -131,14 +94,11 @@ func TestFromModelFlow(t *testing.T) {
 		Graph: model.Graph{
 			Nodes: []model.Node{
 				{
-					Width:  0,
-					Height: 0,
-					Id:     "hello",
-					Position: struct {
-						X int `json:"x"`
-						Y int `json:"y"`
-					}{},
-					Type: "hello_component",
+					Width:    0,
+					Height:   0,
+					Id:       "hello",
+					Position: model.NodePosition{},
+					Type:     "hello_component",
 					Data: model.NodeData{
 						ComponentData: model.ComponentData{
 							Source:       model.ComponentSource{},
@@ -171,10 +131,7 @@ func TestFromModelFlow(t *testing.T) {
 						},
 						Inputs: map[string]string{"name": "bysir", "age": "18"},
 					},
-					PositionAbsolute: struct {
-						X int `json:"x"`
-						Y int `json:"y"`
-					}{},
+					PositionAbsolute: model.NodePosition{},
 				},
 			},
 			OutputNodeId: "hello",
@@ -190,10 +147,8 @@ func TestFromModelFlow(t *testing.T) {
 	//t.Logf("components: %+v", components)
 
 	wf := NewWriteFlow()
-	wf.RegisterComponent(NewComponent(cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
+	wf.RegisterCmd("hello_component", cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
 		return map[string]interface{}{"default": "hello: " + (params["name"].(string))}, nil
-	}), cmd.Schema{
-		Key: "hello_component",
 	}))
 
 	rsp, err := wf.ExecFlow(context.Background(), f, map[string]interface{}{"name": "bysir"})
@@ -275,9 +230,7 @@ func TestOpenAIFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wf.RegisterComponent(NewComponent(callLLM, cmd.Schema{
-		Key: "call",
-	}))
+	wf.RegisterCmd("call", callLLM)
 
 	newScript, err := cmd.NewGoScript(nil, "/Users/bysir/goproj/bysir/writeflow/_pkg", `package main
 					import (
@@ -295,9 +248,7 @@ func TestOpenAIFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wf.RegisterComponent(NewComponent(newScript, cmd.Schema{
-		Key: "openai",
-	}))
+	wf.RegisterCmd("openai", newScript)
 
 	rsp, err := wf.ExecFlow(context.Background(), f, map[string]interface{}{"query": "特斯拉是谁"})
 	if err != nil {

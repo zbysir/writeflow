@@ -1,6 +1,7 @@
 package apiservice
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/internal/repo"
@@ -75,6 +76,21 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 
 		ctx.JSON(200, "ok")
 	})
+	router.PUT("/flow", func(ctx *gin.Context) {
+		var params model.Flow
+		err := ctx.Bind(&params)
+		if err != nil {
+			ctx.Error(err)
+			return
+		}
+		err = a.flowRepo.UpdateFlow(ctx, &params)
+		if err != nil {
+			ctx.Error(err)
+			return
+		}
+
+		ctx.JSON(200, "ok")
+	})
 	router.DELETE("/flow", func(ctx *gin.Context) {
 		var params IdReq
 		err := ctx.Bind(&params)
@@ -107,24 +123,24 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 		ctx.JSON(200, r)
 	})
 
+	type GetComponentsParams struct {
+	}
+
 	// component
 	router.GET("/component", func(ctx *gin.Context) {
-		var params repo.GetFlowListParams
+		var params GetComponentsParams
 		err := ctx.Bind(&params)
 		if err != nil {
 			ctx.Error(err)
 			return
 		}
-		cs, total, err := a.flowRepo.GetComponentList(ctx, params)
+		cs, err := a.flowUsecase.GetComponents(ctx)
 		if err != nil {
 			ctx.Error(err)
 			return
 		}
 
-		ctx.JSON(200, map[string]interface{}{
-			"total": total,
-			"list":  cs,
-		})
+		ctx.JSON(200, cs)
 	})
 
 	router.GET("/component_one", func(ctx *gin.Context) {
@@ -134,14 +150,13 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 			ctx.Error(err)
 			return
 		}
-		cs, err := a.flowRepo.GetComponentByKeys(ctx, []string{params.Key})
+		c, exist, err := a.flowUsecase.GetComponentByKey(ctx, params.Key)
 		if err != nil {
 			ctx.Error(err)
 			return
 		}
-		c, exist := cs[params.Key]
 		if !exist {
-			ctx.JSON(404, "not found")
+			ctx.JSON(404, fmt.Sprintf("not found component by key: %s", params.Key))
 			return
 		}
 
@@ -149,32 +164,32 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 	})
 
 	router.POST("/component", func(ctx *gin.Context) {
-		var params model.Component
-		err := ctx.Bind(&params)
-		if err != nil {
-			ctx.Error(err)
-			return
-		}
-		err = a.flowRepo.CreateComponent(ctx, &params)
-		if err != nil {
-			ctx.Error(err)
-			return
-		}
+		//var params model.Component
+		//err := ctx.Bind(&params)
+		//if err != nil {
+		//	ctx.Error(err)
+		//	return
+		//}
+		//err = a.flowRepo.CreateComponent(ctx, &params)
+		//if err != nil {
+		//	ctx.Error(err)
+		//	return
+		//}
 
 		ctx.JSON(200, "ok")
 	})
 	router.DELETE("/component", func(ctx *gin.Context) {
-		var params KeyReq
-		err := ctx.Bind(&params)
-		if err != nil {
-			ctx.Error(err)
-			return
-		}
-		err = a.flowRepo.DeleteComponent(ctx, params.Key)
-		if err != nil {
-			ctx.Error(err)
-			return
-		}
+		//var params KeyReq
+		//err := ctx.Bind(&params)
+		//if err != nil {
+		//	ctx.Error(err)
+		//	return
+		//}
+		//err = a.flowRepo.DeleteComponent(ctx, params.Key)
+		//if err != nil {
+		//	ctx.Error(err)
+		//	return
+		//}
 
 		ctx.JSON(200, "ok")
 	})

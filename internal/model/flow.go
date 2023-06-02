@@ -16,6 +16,10 @@ type Flow struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+type Locales map[string]string
+
+// 一般情况下一个 component 对应一个同名的 cmd。
+
 type Component struct {
 	Id       int64         `json:"id"`
 	Key      string        `json:"key"`      // 组件类型，需要全局唯一
@@ -58,7 +62,7 @@ type NodePosition struct {
 
 // Node 是 Component 的实例
 type Node struct {
-	Id               string       `json:"id"` // 前段自己生成，随意，保证画布中不重复就行。
+	Id               string       `json:"id"` // 前端自己生成，随意，保证画布中不重复就行。
 	Width            int          `json:"width"`
 	Height           int          `json:"height"`
 	Position         NodePosition `json:"position"`
@@ -68,14 +72,26 @@ type Node struct {
 }
 
 type ComponentGoScript struct {
-	Script string `json:"script"`
+	Script string `json:"script,omitempty"`
+}
+type ComponentGoPackage struct {
+	GitUrl string `json:"git_url,omitempty"`
 }
 
+type ComponentCmdType = string
+
+const (
+	GoScriptCmd  ComponentCmdType = "go_script"
+	GoPackageCmd ComponentCmdType = "go_package"
+	BuiltInCmd   ComponentCmdType = "builtin"
+)
+
+// ComponentSource 组件数据源，可以用来得到 Cmd
 type ComponentSource struct {
-	Type     string            `json:"type"`     // local / git / builtin
-	CmdType  string            `json:"cmd_type"` // go_script / go_pkg
-	GitUrl   string            `json:"git_url"`
-	GoScript ComponentGoScript `json:"go_script"`
+	CmdType    ComponentCmdType   `json:"cmd_type"` // go_script / git / builtin
+	BuiltinCmd string             `json:"builtin_cmd"`
+	GoPackage  ComponentGoPackage `json:"go_package,omitempty"`
+	GoScript   ComponentGoScript  `json:"go_script,omitempty"`
 }
 
 type NodeAnchor struct {
@@ -101,11 +117,11 @@ type NodeData struct {
 }
 
 type ComponentData struct {
-	Name          map[string]string `json:"name"`
-	Icon          string            `json:"icon"`
-	Description   map[string]string `json:"description"`
-	Source        ComponentSource   `json:"source"`
-	InputAnchors  []NodeAnchor      `json:"input_anchors"`  // 输入锚点定义
-	InputParams   []NodeInputParam  `json:"input_params"`   // 字面参数定义
-	OutputAnchors []NodeAnchor      `json:"output_anchors"` // 输出锚点定义
+	Name          Locales          `json:"name"`
+	Icon          string           `json:"icon"`
+	Description   Locales          `json:"description"`
+	Source        ComponentSource  `json:"source"`
+	InputAnchors  []NodeAnchor     `json:"input_anchors,omitempty"`  // 输入锚点定义
+	InputParams   []NodeInputParam `json:"input_params,omitempty"`   // 字面参数定义
+	OutputAnchors []NodeAnchor     `json:"output_anchors,omitempty"` // 输出锚点定义
 }
