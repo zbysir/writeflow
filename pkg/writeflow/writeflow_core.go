@@ -6,8 +6,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
+	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/pkg/schema"
+	"sort"
 	"strings"
+	"time"
 )
 
 type WriteFlowCore struct {
@@ -16,12 +19,7 @@ type WriteFlowCore struct {
 
 func NewWriteFlowCore() *WriteFlowCore {
 	return &WriteFlowCore{
-		cmds: map[string]schema.CMDer{
-			// Echo is a builtin component, it will return the input params.
-			"Echo": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-				return params, nil
-			}),
-		},
+		cmds: map[string]schema.CMDer{},
 	}
 }
 
@@ -29,11 +27,18 @@ func (f *WriteFlowCore) RegisterCmd(key string, cmd schema.CMDer) {
 	f.cmds[key] = cmd
 }
 
+type NodeInputType = string
+
+const (
+	NodeInputAnchor  NodeInputType = "anchor"
+	NodeInputLiteral NodeInputType = "literal"
+)
+
 type NodeInput struct {
 	Key       string
-	Type      string // anchor, literal
-	Literal   string // 字面量
-	NodeId    string // anchor node id
+	Type      NodeInputType // anchor, literal
+	Literal   string        // 字面量
+	NodeId    string        // anchor node id
 	OutputKey string
 }
 
@@ -43,9 +48,38 @@ type Node struct {
 	Inputs []NodeInput
 }
 
+type Nodes map[string]Node
 type Flow struct {
-	Nodes        map[string]Node // node id -> node
+	Nodes        Nodes // node id -> node
 	OutputNodeId string
+}
+
+// GetRootNodes Get root nodes that need run
+func (d Nodes) GetRootNodes() (nodes []Node) {
+	nds := map[string]Node{}
+	for k, v := range d {
+		nds[k] = v
+	}
+
+	for _, v := range d {
+		for _, input := range v.Inputs {
+			if input.Type == NodeInputAnchor {
+				delete(nds, input.NodeId)
+			}
+		}
+	}
+
+	// sort for stable
+	var keys []string
+	for k := range nds {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		nodes = append(nodes, nds[key])
+	}
+	return nodes
 }
 
 func (d *Flow) UsedComponents() (componentType []string) {
@@ -111,20 +145,57 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 }
 
 func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}) (rsp map[string]interface{}, err error) {
+	result := make(chan *model.NodeStatus, len(flow.Nodes))
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	go func() {
+		err = f.ExecFlowAsync(ctx, flow, initParams, result)
+		if err != nil {
+			close(result)
+			return
+		}
+		close(result)
+	}()
+
+	for r := range result {
+		if r.NodeId == flow.OutputNodeId {
+			rsp = r.Result
+			break
+		}
+	}
+
+	return
+}
+
+func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, results chan *model.NodeStatus) (err error) {
 	// use INPUT node to get init params
 	f.RegisterCmd("INPUT", cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 		return initParams, nil
 	}))
 
-	outputNodeId := flow.OutputNodeId
-	if outputNodeId == "" {
-		outputNodeId = "OUTPUT"
-	}
-
 	fr := newRunner(f.cmds, flow)
-	rsp, err = fr.ExecJob(ctx, outputNodeId)
-	if err != nil {
-		return
+	runNodes := flow.Nodes.GetRootNodes()
+
+	for _, node := range runNodes {
+		start := time.Now()
+		rsp, err := fr.ExecJob(ctx, node.Id, func(err error, result model.NodeStatus) {
+			results <- &result
+		})
+		if err != nil {
+			results <- &model.NodeStatus{
+				NodeId: node.Id,
+				Status: model.StatusFailed,
+				Error:  err.Error(),
+				Result: nil,
+				RunAt:  start,
+				EndAt:  time.Now(),
+			}
+			return err
+		}
+
+		log.Infof("node: %v, rsp: %+v", node.Id, rsp)
 	}
 
 	return
@@ -156,7 +227,19 @@ func (e *ExecNodeError) Unwrap() error {
 	return e.Cause
 }
 
-func (f *runner) ExecJob(ctx context.Context, nodeId string) (rsp map[string]interface{}, err error) {
+func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(err error, result model.NodeStatus)) (rsp map[string]interface{}, err error) {
+	start := time.Now()
+	defer func() {
+		if onNodeRun != nil {
+			onNodeRun(err, model.NodeStatus{
+				NodeId: nodeId,
+				Result: rsp,
+				RunAt:  start,
+				EndAt:  time.Now(),
+			})
+		}
+	}()
+
 	nodeDef := f.flowDef.Nodes[nodeId]
 
 	inputs := nodeDef.Inputs
@@ -177,7 +260,7 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string) (rsp map[string]int
 				//log.Printf("i.NodeId %v: %+v", i.NodeId, f.cmdRspCache[i.NodeId])
 				value = f.cmdRspCache[i.NodeId][i.OutputKey]
 			} else {
-				rsps, err := f.ExecJob(ctx, i.NodeId)
+				rsps, err := f.ExecJob(ctx, i.NodeId, onNodeRun)
 				if err != nil {
 					return nil, fmt.Errorf("exec task '%s' err: %v", i.NodeId, err)
 				}

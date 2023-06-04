@@ -153,6 +153,7 @@ func (b *Builtin) Components() []model.Component {
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "raw",
 				},
+				// dynamic input
 				InputAnchors: []model.NodeAnchor{},
 				InputParams:  []model.NodeInputParam{},
 				OutputAnchors: []model.NodeAnchor{

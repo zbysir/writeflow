@@ -5,87 +5,103 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
-	"strings"
 	"testing"
 	"time"
 )
 
-func TestXFlow(t *testing.T) {
-	t.Run("base", func(t *testing.T) {
-		f := NewWriteFlow()
-
-		f.RegisterCmd("hello", cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
-			return map[string]interface{}{"default": "hello: " + (params["name"].(string))}, nil
-		}))
-
-		f.RegisterCmd("append", cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
-			return map[string]interface{}{"default": strings.Join(params["args"].([]string), " ")}, nil
-		}))
-
-		rsp, err := f.ExecFlow(context.Background(), &Flow{
-			OutputNodeId: "END",
-			Nodes: map[string]Node{
-				"hello1": {
-					Id:  "hello1",
-					Cmd: "hello",
-					Inputs: []NodeInput{
-						{
-							Key:       "name",
-							Type:      "anchor",
-							Literal:   "",
-							NodeId:    "hello2",
-							OutputKey: "default",
+func TestGetRootNodes(t *testing.T) {
+	f, err := FlowFromModel(&model.Flow{
+		Id:          0,
+		Name:        "demo_flow",
+		Description: "",
+		Graph: model.Graph{
+			Nodes: []model.Node{
+				{
+					Id:   "hello",
+					Type: "hello_component",
+					Data: model.NodeData{
+						ComponentData: model.ComponentData{
+							InputParams: []model.NodeInputParam{
+								{
+									Id:       "",
+									Name:     nil,
+									Key:      "name",
+									Type:     "string",
+									Optional: false,
+								},
+								{
+									Id:       "",
+									Name:     nil,
+									Key:      "age",
+									Type:     "int",
+									Optional: false,
+								},
+							},
 						},
+						Inputs: map[string]string{"name": "bysir", "age": "18"},
 					},
+					PositionAbsolute: model.NodePosition{},
+				}, {
+					Id:   "hello2",
+					Type: "hello_component",
+					Data: model.NodeData{
+						ComponentData: model.ComponentData{
+							InputParams: []model.NodeInputParam{
+								{
+									Id:       "",
+									Name:     nil,
+									Key:      "name",
+									Type:     "string",
+									Optional: false,
+								},
+								{
+									Id:       "",
+									Name:     nil,
+									Key:      "age",
+									Type:     "int",
+									Optional: false,
+								},
+							},
+						},
+						Inputs: map[string]string{"name": "bysir", "age": "18"},
+					},
+					PositionAbsolute: model.NodePosition{},
 				},
-				"hello2": {
-					Id:  "hello2",
-					Cmd: "hello",
-					Inputs: []NodeInput{
-						{
-							Key:       "name",
-							Type:      "anchor",
-							Literal:   "",
-							NodeId:    "append",
-							OutputKey: "default",
+				{
+					Id:   "hello3",
+					Type: "hello_component",
+					Data: model.NodeData{
+						ComponentData: model.ComponentData{
+							InputAnchors: []model.NodeAnchor{
+								{
+									Id:       "",
+									Name:     nil,
+									Key:      "to_hello2",
+									Type:     "",
+									List:     false,
+									Optional: false,
+								},
+							},
 						},
+						Inputs: map[string]string{"to_hello2": "hello2.name"},
 					},
-				},
-				"append": {
-					Id:  "append",
-					Cmd: "append",
-					Inputs: []NodeInput{
-						{
-							Key:       "args",
-							Type:      "anchor",
-							Literal:   "",
-							NodeId:    "INPUT",
-							OutputKey: "_args",
-						},
-					},
-				},
-				"END": {
-					Id:  "END",
-					Cmd: "",
-					Inputs: []NodeInput{
-						{
-							Key:       "default",
-							Type:      "anchor",
-							Literal:   "",
-							NodeId:    "hello1",
-							OutputKey: "default",
-						},
-					},
+					PositionAbsolute: model.NodePosition{},
 				},
 			},
-		}, map[string]interface{}{"_args": []string{"zhang", "liang"}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		assert.Equal(t, "hello: hello: zhang liang", rsp["default"])
+			OutputNodeId: "hello",
+		},
+		CreatedAt: time.Time{},
+		UpdatedAt: time.Time{},
 	})
-}
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	nodes := f.Nodes.GetRootNodes()
+	assert.Equal(t, 2, len(nodes))
+	assert.Equal(t, "hello", nodes[0].Id)
+	assert.Equal(t, "hello3", nodes[1].Id)
+}
 func TestFromModelFlow(t *testing.T) {
 	f, err := FlowFromModel(&model.Flow{
 		Id:          0,
@@ -146,7 +162,7 @@ func TestFromModelFlow(t *testing.T) {
 	//components := f.UsedComponents()
 	//t.Logf("components: %+v", components)
 
-	wf := NewWriteFlow()
+	wf := NewWriteFlowCore()
 	wf.RegisterCmd("hello_component", cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
 		return map[string]interface{}{"default": "hello: " + (params["name"].(string))}, nil
 	}))
@@ -208,7 +224,7 @@ func TestOpenAIFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wf := NewWriteFlow()
+	wf := NewWriteFlowCore()
 	// 如果要使用 llms.LLM interface，必须先注册
 	callLLM, err := cmd.NewGoScript(nil, "/Users/bysir/goproj/bysir/writeflow/_pkg", `package main
 						import (

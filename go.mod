@@ -6,6 +6,7 @@ require (
 	github.com/docker/libkv v0.2.1
 	github.com/gin-gonic/gin v1.9.0
 	github.com/go-git/go-billy/v5 v5.4.1
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/samber/lo v1.38.1

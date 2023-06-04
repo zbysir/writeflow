@@ -1,0 +1,75 @@
+<!-- input, id is flow-id -->
+<input type="text" id="flow-id" value="6">
+<!-- button , click will fetch a api -->
+<button class="btn btn-primary" id="btn">Test</button>
+
+<!-- result div, id is result -->
+<div id="result"></div>
+
+<script>
+  function appendMsg(msg) {
+    const result = document.getElementById("result")
+    result.innerHTML += `<p>${msg}</p>`
+  }
+
+  function clearMsg() {
+    const result = document.getElementById("result")
+    result.innerHTML = ""
+  }
+
+  const btn = document.getElementById("btn")
+  btn.onclick = function () {
+    clearMsg()
+    // get flow id
+    const flowId = +document.getElementById("flow-id").value
+
+    appendMsg(`flow id: ${flowId}`)
+
+    // fetch url with post method
+    fetch("//localhost:9433/api/flow/run", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        id: flowId,
+      })
+    }).then(res => {
+      // handle response
+      if (res.status === 200) {
+        return res.json()
+      } else {
+        throw new Error(res.statusText)
+      }
+    }).then(data => {
+      const runId = data
+      appendMsg(`run id: ${runId}`)
+
+      let error = null
+      const ws = new WebSocket(`ws://localhost:9433/api/ws/${runId}`);
+      ws.onerror = function (e) {
+        error = e
+        console.log({msg: 'WebSocket 链接错误，请检查控制台'})
+      }
+      ws.onclose = function (e) {
+        if (error) {
+          return
+        }
+
+        console.log("close", e)
+      }
+
+      ws.onmessage = function (e) {
+        const data = JSON.parse(e.data)
+
+        appendMsg(e.data)
+        console.log("ws:", data)
+      }
+
+    }).catch(err => {
+      console.log(err)
+    })
+  }
+
+
+</script>

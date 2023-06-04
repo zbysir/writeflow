@@ -8,8 +8,8 @@ import (
 )
 
 type WriteFlow struct {
-	builtinCmd map[string]schema.CMDer
 	option
+	core *WriteFlowCore
 }
 
 func NewWriteFlow(ops ...Option) *WriteFlow {
@@ -25,10 +25,16 @@ func NewWriteFlow(ops ...Option) *WriteFlow {
 			builtinCmd[k] = v
 		}
 	}
+	c := NewWriteFlowCore()
+	for _, v := range o.modules {
+		for k, v := range v.Cmd() {
+			c.RegisterCmd(k, v)
+		}
+	}
 
 	return &WriteFlow{
-		builtinCmd: builtinCmd,
-		option:     o,
+		option: o,
+		core:   c,
 	}
 }
 
@@ -89,12 +95,23 @@ func (w *WriteFlow) GetComponentByKey(key string) (c model.Component, exist bool
 }
 
 func (w *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}) (rsp map[string]interface{}, err error) {
-	c := NewWriteFlowCore()
-	for _, v := range w.modules {
-		for k, v := range v.Cmd() {
-			c.RegisterCmd(k, v)
-		}
-	}
+	return w.core.ExecFlow(ctx, flow, initParams)
+}
 
-	return c.ExecFlow(ctx, flow, initParams)
+func (w *WriteFlow) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}) (status chan *model.NodeStatus, err error) {
+	status = make(chan *model.NodeStatus, len(flow.Nodes))
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	go func() {
+		err = w.core.ExecFlowAsync(ctx, flow, initParams, status)
+		if err != nil {
+			close(status)
+			return
+		}
+		close(status)
+	}()
+
+	return
 }
