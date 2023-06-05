@@ -3,10 +3,8 @@ package apiservice
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/internal/repo"
-	"net/http"
 )
 
 type IdReq struct {
@@ -109,13 +107,6 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 		ctx.JSON(200, "ok")
 	})
 
-	var upgrader = websocket.Upgrader{
-		// 解决跨域问题
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-	}
-
 	router.POST("/flow/run", func(ctx *gin.Context) {
 		var params RunFlowReq
 		err := ctx.Bind(&params)
@@ -130,16 +121,6 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 		}
 
 		ctx.JSON(200, r)
-	})
-
-	router.GET("/ws/:key", func(c *gin.Context) {
-		key := c.Param("key")
-		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-		if err != nil {
-			c.Error(err)
-			return
-		}
-		a.flowUsecase.AddWs(key, conn)
 	})
 
 	type GetComponentsParams struct {

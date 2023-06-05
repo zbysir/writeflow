@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/zbysir/writeflow/internal/pkg/auth"
 	"github.com/zbysir/writeflow/internal/pkg/config"
 	"github.com/zbysir/writeflow/internal/pkg/httpsrv"
@@ -105,19 +106,30 @@ func (a *ApiService) Run(ctx context.Context, addr string) (err error) {
 	r := gin.Default()
 	r.Use(Cors())
 
-	var gateway = r.Group("/").Use(ErrorHandler())
+	var api = r.Group("/api").Use(ErrorHandler(), Cors())
 
-	gateway.Use(Auth(a.config.Secret)).GET("/ws/:key", func(c *gin.Context) {
-		//key := c.Param("key")
-		//conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-		//if err != nil {
-		//	c.Error(err)
-		//	return
-		//}
-		//a.hub.Add(key, conn)
+	var upgrader = websocket.Upgrader{
+		// 解决跨域问题
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+
+	api.GET("/ws/:topic", func(c *gin.Context) {
+		topic := c.Param("topic")
+		if topic == "" {
+			c.Error(errors.New("need topic"))
+			return
+		}
+
+		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		a.flowUsecase.AddWs(topic, conn)
 	})
 
-	var api = r.Group("/api").Use(ErrorHandler(), Cors())
 	api.POST("/auth", func(c *gin.Context) {
 		// 创建 token
 		var p struct {

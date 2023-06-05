@@ -62,7 +62,7 @@ func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]inte
 	log.Infof("flow: %+v", flow)
 	log.Infof("f: %+v", f)
 
-	runId = uuid.New().String()
+	runId = fmt.Sprintf("flow.%s", uuid.New().String())
 
 	status, err := u.wirteflow.ExecFlowAsync(ctx, f, params)
 	if err != nil {
@@ -82,6 +82,12 @@ func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]inte
 				return
 			}
 		}
+		err = u.ws.Send(runId, ws.EOF)
+		if err != nil {
+			log.Errorf("ws send err: %v", err)
+			return
+		}
+
 	}()
 
 	return

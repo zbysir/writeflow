@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"io"
@@ -9,10 +10,11 @@ import (
 	"time"
 )
 
-// WsHub todo 优化：使用占位符逻辑，当 key 生成就放入，只有放入了 key 才能写消息
+// WsHub
+// todo 优化：使用占位符逻辑，当 key 生成就放入，只有放入了 key 才能写消息，优化任意 topic 的消息都能写入造成内存泄漏。
 type WsHub struct {
 	conns   map[string]*websocket.Conn
-	history map[string][]Message
+	history map[string][]Message // key -> messages, TODO TTL
 	l       sync.Mutex
 }
 
@@ -36,6 +38,8 @@ func (h *WsHub) Add(key string, conn *websocket.Conn) {
 	if key == "" {
 		key = fmt.Sprintf("%v", rand.Int63())
 	}
+
+	// close old conn
 	if o, ok := h.conns[key]; ok {
 		_ = o.Close()
 	}
@@ -45,15 +49,32 @@ func (h *WsHub) Add(key string, conn *websocket.Conn) {
 	// send history
 	messages := h.history[key]
 	for _, v := range messages {
+		if bytes.Equal(v, EOF) {
+			if o, ok := h.conns[key]; ok {
+				o.Close()
+			}
+			delete(h.conns, key)
+			break
+		}
 		conn.WriteMessage(1, v)
 	}
 }
 
+var EOF = []byte("EOF")
+
 func (h *WsHub) Send(key string, body []byte) error {
 	h.l.Lock()
 	defer h.l.Unlock()
-
 	h.history[key] = append(h.history[key], body)
+
+	// close conn
+	if bytes.Equal(body, EOF) {
+		if o, ok := h.conns[key]; ok {
+			o.Close()
+		}
+		delete(h.conns, key)
+		return nil
+	}
 
 	if o, ok := h.conns[key]; ok {
 		err := o.WriteMessage(1, body)
@@ -71,7 +92,14 @@ func (s sender) Write(p []byte) (n int, err error) {
 	return len(p), s(p)
 }
 
-func (h *WsHub) GetKeyWrite(key string) io.Writer {
+func (s sender) Close() (err error) {
+	return s(EOF)
+}
+
+func (h *WsHub) GetKeyWrite(key string) interface {
+	io.Writer
+	io.Closer
+} {
 	return sender(func(body []byte) error {
 		return h.Send(key, body)
 	})

@@ -179,19 +179,10 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 	runNodes := flow.Nodes.GetRootNodes()
 
 	for _, node := range runNodes {
-		start := time.Now()
-		rsp, err := fr.ExecJob(ctx, node.Id, func(err error, result model.NodeStatus) {
+		rsp, err := fr.ExecJob(ctx, node.Id, func(result model.NodeStatus) {
 			results <- &result
 		})
 		if err != nil {
-			results <- &model.NodeStatus{
-				NodeId: node.Id,
-				Status: model.StatusFailed,
-				Error:  err.Error(),
-				Result: nil,
-				RunAt:  start,
-				EndAt:  time.Now(),
-			}
 			return err
 		}
 
@@ -227,16 +218,29 @@ func (e *ExecNodeError) Unwrap() error {
 	return e.Cause
 }
 
-func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(err error, result model.NodeStatus)) (rsp map[string]interface{}, err error) {
+func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
 	start := time.Now()
 	defer func() {
 		if onNodeRun != nil {
-			onNodeRun(err, model.NodeStatus{
-				NodeId: nodeId,
-				Result: rsp,
-				RunAt:  start,
-				EndAt:  time.Now(),
-			})
+			if err != nil {
+				onNodeRun(model.NodeStatus{
+					NodeId: nodeId,
+					Status: model.StatusFailed,
+					Error:  err.Error(),
+					Result: nil,
+					RunAt:  start,
+					EndAt:  time.Now(),
+				})
+			} else {
+				onNodeRun(model.NodeStatus{
+					NodeId: nodeId,
+					Status: model.StatusSuccess,
+					Error:  "",
+					Result: rsp,
+					RunAt:  start,
+					EndAt:  time.Now(),
+				})
+			}
 		}
 	}()
 
@@ -272,6 +276,17 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(err 
 		}
 
 		dependValue[i.Key] = value
+	}
+
+	if onNodeRun != nil {
+		onNodeRun(model.NodeStatus{
+			NodeId: nodeId,
+			Status: model.StatusRunning,
+			Error:  "",
+			Result: rsp,
+			RunAt:  start,
+			EndAt:  time.Time{},
+		})
 	}
 
 	//log.Printf("dependValue: %+v", dependValue)

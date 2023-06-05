@@ -1,10 +1,20 @@
 package writeflow
 
 import (
+	"context"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/pkg/schema"
 )
+
+type nothingCMD struct {
+}
+
+func (n nothingCMD) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+	return nil, nil
+}
+
+var _nothingCMD = nothingCMD{}
 
 func ComponentFromModel(m *model.Component, builtinCmd map[string]schema.CMDer) (cmder schema.CMDer, sc cmd.Schema, err error) {
 	var input []cmd.SchemaParams
@@ -36,13 +46,15 @@ func ComponentFromModel(m *model.Component, builtinCmd map[string]schema.CMDer) 
 	}
 
 	switch m.Data.Source.CmdType {
-	case "go_script":
+	case model.GoScriptCmd:
 		cmder, err = cmd.NewGoScript(nil, "", m.Data.Source.GoScript.Script)
 		if err != nil {
 			return
 		}
-	case "builtin":
+	case model.BuiltInCmd:
 		cmder = builtinCmd[m.Data.Source.BuiltinCmd]
+	case model.NothingCmd:
+		cmder = _nothingCMD
 	}
 
 	sc = cmd.Schema{

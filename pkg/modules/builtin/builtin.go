@@ -95,8 +95,7 @@ func (b *Builtin) Components() []model.Component {
 					"zh-CN": "输出",
 				},
 				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
-					BuiltinCmd: "raw",
+					CmdType:    model.NothingCmd,
 					GoPackage:  model.ComponentGoPackage{},
 					GoScript:   model.ComponentGoScript{},
 				},

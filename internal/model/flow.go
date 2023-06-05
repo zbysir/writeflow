@@ -84,6 +84,7 @@ const (
 	GoScriptCmd  ComponentCmdType = "go_script"
 	GoPackageCmd ComponentCmdType = "go_package"
 	BuiltInCmd   ComponentCmdType = "builtin"
+	NothingCmd   ComponentCmdType = "nothing"
 )
 
 // ComponentSource 组件数据源，可以用来得到 Cmd

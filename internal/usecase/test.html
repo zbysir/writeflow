@@ -45,17 +45,11 @@
       const runId = data
       appendMsg(`run id: ${runId}`)
 
-      let error = null
-      const ws = new WebSocket(`ws://localhost:9433/api/ws/${runId}`);
+      const ws = new WebSocket(`ws://localhost:9433/api/ws/${runId}`)
       ws.onerror = function (e) {
-        error = e
-        console.log({msg: 'WebSocket 链接错误，请检查控制台'})
+        console.log('WebSocket 链接错误，请检查控制台',e)
       }
       ws.onclose = function (e) {
-        if (error) {
-          return
-        }
-
         console.log("close", e)
       }
 
