@@ -102,6 +102,7 @@ type NodeAnchor struct {
 	Type     string            `json:"type"`           // 数据模型，如 string / int / any
 	List     bool              `json:"list,omitempty"` // 是否是数组
 	Optional bool              `json:"optional,omitempty"`
+	Dynamic  bool              `json:"dynamic,omitempty"` // 是否是动态输入，是动态输入才能删除。
 }
 
 type NodeInputParam struct {
@@ -122,6 +123,7 @@ type ComponentData struct {
 	Icon          string           `json:"icon"`
 	Description   Locales          `json:"description"`
 	Source        ComponentSource  `json:"source"`
+	DynamicInput  bool             `json:"dynamic_input"`            // 是否可以添加动态输入
 	InputAnchors  []NodeAnchor     `json:"input_anchors,omitempty"`  // 输入锚点定义
 	InputParams   []NodeInputParam `json:"input_params,omitempty"`   // 字面参数定义
 	OutputAnchors []NodeAnchor     `json:"output_anchors,omitempty"` // 输出锚点定义

@@ -1,6 +1,7 @@
 package apiservice
 
 import (
+	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/zbysir/writeflow/internal/model"
@@ -114,7 +115,7 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 			ctx.Error(err)
 			return
 		}
-		r, err := a.flowUsecase.RunFlow(ctx, params.Id, params.Params)
+		r, err := a.flowUsecase.RunFlow(context.Background(), params.Id, params.Params)
 		if err != nil {
 			ctx.Error(err)
 			return

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"github.com/zbysir/writeflow/internal/pkg/ttlpool"
 	"io"
 	"math/rand"
 	"sync"
@@ -14,8 +15,9 @@ import (
 // todo 优化：使用占位符逻辑，当 key 生成就放入，只有放入了 key 才能写消息，优化任意 topic 的消息都能写入造成内存泄漏。
 type WsHub struct {
 	conns   map[string]*websocket.Conn
-	history map[string][]Message // key -> messages, TODO TTL
-	l       sync.Mutex
+	history *ttlpool.Pool[[]Message]
+	//history map[string][]Message // key -> messages, TODO TTL
+	l sync.Mutex
 }
 
 type Message []byte
@@ -24,7 +26,7 @@ func NewHub() *WsHub {
 	return &WsHub{
 		conns:   map[string]*websocket.Conn{},
 		l:       sync.Mutex{},
-		history: map[string][]Message{},
+		history: ttlpool.NewPool[[]Message](),
 	}
 }
 
@@ -47,7 +49,7 @@ func (h *WsHub) Add(key string, conn *websocket.Conn) {
 	h.conns[key] = conn
 
 	// send history
-	messages := h.history[key]
+	messages, _ := h.history.Get(key)
 	for _, v := range messages {
 		if bytes.Equal(v, EOF) {
 			if o, ok := h.conns[key]; ok {
@@ -62,10 +64,14 @@ func (h *WsHub) Add(key string, conn *websocket.Conn) {
 
 var EOF = []byte("EOF")
 
+var historyTtl = time.Minute * 5
+
 func (h *WsHub) Send(key string, body []byte) error {
 	h.l.Lock()
 	defer h.l.Unlock()
-	h.history[key] = append(h.history[key], body)
+	h.history.Update(key, func(v []Message) ([]Message, time.Duration) {
+		return append(v, body), historyTtl
+	})
 
 	// close conn
 	if bytes.Equal(body, EOF) {
@@ -111,7 +117,6 @@ func (h *WsHub) Close(key string) {
 	if o, ok := h.conns[key]; ok {
 		o.Close()
 	}
-	delete(h.history, key)
 	delete(h.conns, key)
 	return
 }

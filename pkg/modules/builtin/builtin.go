@@ -2,22 +2,29 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/pkg/modules"
 	"github.com/zbysir/writeflow/pkg/schema"
+	"reflect"
+	"regexp"
 	"strings"
 )
 
 type Builtin struct {
 }
 
+func (b *Builtin) GoSymbols() map[string]map[string]reflect.Value {
+	return nil
+}
+
 func New() *Builtin {
 	return &Builtin{}
 }
 
-var _ modules.Module = &Builtin{}
+var _ modules.Module = (*Builtin)(nil)
 
 func (b *Builtin) Info() modules.ModuleInfo {
 	return modules.ModuleInfo{
@@ -48,6 +55,13 @@ func (b *Builtin) Categories() []model.Category {
 			},
 			Desc: nil,
 		},
+		{
+			Key: "text",
+			Name: map[string]string{
+				"zh-CN": "文本处理",
+			},
+			Desc: nil,
+		},
 	}
 }
 
@@ -70,7 +84,9 @@ func (b *Builtin) Components() []model.Component {
 				InputParams: []model.NodeInputParam{
 					{
 						Id:       "",
-						Name:     nil,
+						Name: map[string]string{
+							"zh-CN":"字符串",
+						},
 						Key:      "default",
 						Type:     "string",
 						Optional: true,
@@ -78,6 +94,9 @@ func (b *Builtin) Components() []model.Component {
 				},
 				OutputAnchors: []model.NodeAnchor{
 					{
+						Name: map[string]string{
+							"zh-CN":"Default",
+						},
 						Key:      "default",
 						Type:     "string",
 						List:     false,
@@ -95,16 +114,18 @@ func (b *Builtin) Components() []model.Component {
 					"zh-CN": "输出",
 				},
 				Source: model.ComponentSource{
-					CmdType:    model.NothingCmd,
-					GoPackage:  model.ComponentGoPackage{},
-					GoScript:   model.ComponentGoScript{},
+					CmdType:   model.NothingCmd,
+					GoPackage: model.ComponentGoPackage{},
+					GoScript:  model.ComponentGoScript{},
 				},
 				InputParams: []model.NodeInputParam{
 					{
 						Id:       "",
-						Name:     nil,
+						Name: map[string]string{
+							"zh-CN":"数据",
+						},
 						Key:      "default",
-						Type:     "string",
+						Type:     "any",
 						Optional: true,
 					},
 				},
@@ -121,26 +142,30 @@ func (b *Builtin) Components() []model.Component {
 				Source: model.ComponentSource{
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "select",
-					GoPackage:  model.ComponentGoPackage{},
-					GoScript:   model.ComponentGoScript{},
 				},
 				InputAnchors: []model.NodeAnchor{
 					{
+						Name: map[string]string{
+							"zh-CN":"数据",
+						},
 						Key:      "data",
 						Type:     "any",
-						List:     false,
 						Optional: true,
 					},
 				},
 				InputParams: []model.NodeInputParam{
 					{
+						Name: map[string]string{
+							"zh-CN":"Path",
+						},
 						Key:      "path",
 						Type:     "string",
 						Optional: true,
 					},
 				},
 			},
-		}, {
+		},
+		{
 			Id:       0,
 			Key:      "record",
 			Category: "data",
@@ -150,17 +175,50 @@ func (b *Builtin) Components() []model.Component {
 				},
 				Source: model.ComponentSource{
 					CmdType:    model.BuiltInCmd,
-					BuiltinCmd: "raw",
+					BuiltinCmd: "record",
 				},
 				// dynamic input
 				InputAnchors: []model.NodeAnchor{},
 				InputParams:  []model.NodeInputParam{},
 				OutputAnchors: []model.NodeAnchor{
 					{
+						Name: map[string]string{
+							"zh-CN":"集合",
+						},
 						Key:      "default",
 						Type:     "any",
-						List:     false,
 						Optional: false,
+					},
+				},
+			},
+		},
+		{
+			Key:      "template_text",
+			Category: "text",
+			Data: model.ComponentData{
+				Name: map[string]string{
+					"zh-CN": "模板文本",
+				},
+				Source: model.ComponentSource{
+					CmdType:    model.BuiltInCmd,
+					BuiltinCmd: "template_text",
+				},
+
+				// dynamic input
+				InputAnchors: []model.NodeAnchor{},
+				InputParams: []model.NodeInputParam{
+					{
+						Name: map[string]string{
+							"zh-CN": "模板",
+						},
+						Key:  "template",
+						Type: "string",
+					},
+				},
+				OutputAnchors: []model.NodeAnchor{
+					{
+						Key:  "default",
+						Type: "string",
 					},
 				},
 			},
@@ -174,6 +232,31 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 		"raw": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			//log.Infof("raw params: %+v", params)
 			return params, nil
+		}),
+		"record": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+			return map[string]interface{}{"default": params}, nil
+		}),
+		"template_text": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+			tpl := params["template"].(string)
+
+			vars, _ := json.Marshal(params)
+			var varMap map[string]interface{}
+			err = json.Unmarshal(vars, &varMap)
+			if err != nil {
+				return nil, err
+			}
+			// match {{abc}}
+			reg := regexp.MustCompile(`{{\s*(\w+)\s*}}`)
+			s := reg.ReplaceAllStringFunc(tpl, func(s string) string {
+				s = strings.Trim(s, "{} ")
+				r, ok := lookupMap(varMap, strings.Split(s, ".")...)
+				if !ok {
+					return s
+				}
+				return fmt.Sprintf("%v", r)
+			})
+
+			return map[string]interface{}{"default": s}, nil
 		}),
 		// 通过路径选择入参返回
 		"select": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {

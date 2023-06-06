@@ -10,6 +10,7 @@ import (
 	"github.com/zbysir/writeflow/internal/pkg/ws"
 	"github.com/zbysir/writeflow/internal/repo"
 	"github.com/zbysir/writeflow/pkg/modules/builtin"
+	"github.com/zbysir/writeflow/pkg/modules/langchain"
 	"github.com/zbysir/writeflow/pkg/writeflow"
 )
 
@@ -21,7 +22,12 @@ type Flow struct {
 }
 
 func NewFlow(flowRepo repo.Flow) *Flow {
-	wirteflow := writeflow.NewWriteFlow(writeflow.WithModules(builtin.New()))
+	wirteflow := writeflow.NewWriteFlow(
+		writeflow.WithModules(
+			builtin.New(),
+			langchain.NewLangChain(),
+		),
+	)
 
 	return &Flow{
 		flowRepo:  flowRepo,
@@ -70,12 +76,14 @@ func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]inte
 	}
 
 	go func() {
+		log.Infof("%s start", runId)
 		for r := range status {
 			bs, err := r.Json()
 			if err != nil {
 				log.Errorf("status to json err: %v", err)
 				return
 			}
+			log.Infof("%s %s", runId, bs)
 			err = u.ws.Send(runId, bs)
 			if err != nil {
 				log.Errorf("ws send err: %v", err)

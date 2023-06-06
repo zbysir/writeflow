@@ -95,3 +95,15 @@ func TestSelect(t *testing.T) {
 
 	assert.Equal(t, "bysir", r["default"])
 }
+
+func TestTemplateText(t *testing.T) {
+	r, err := New().Cmd()["template_text"].Exec(context.Background(), map[string]interface{}{
+		"template": "hello {{name}}",
+		"name":     "bysir",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "hello bysir", r["default"])
+}
