@@ -32,6 +32,10 @@ func (b *Builtin) Info() modules.ModuleInfo {
 	}
 }
 
+// 以下组件 key 需要前端特殊处理：
+// go_script: 有个编辑器直接编辑 go 代码
+// output: 可以按照格式（如 markdown）显示输出
+
 func (b *Builtin) Categories() []model.Category {
 	return []model.Category{
 		{
@@ -62,6 +66,13 @@ func (b *Builtin) Categories() []model.Category {
 			},
 			Desc: nil,
 		},
+		{
+			Key: "script",
+			Name: map[string]string{
+				"zh-CN": "脚本",
+			},
+			Desc: nil,
+		},
 	}
 }
 
@@ -83,9 +94,9 @@ func (b *Builtin) Components() []model.Component {
 				},
 				InputParams: []model.NodeInputParam{
 					{
-						Id:       "",
+						Id: "",
 						Name: map[string]string{
-							"zh-CN":"字符串",
+							"zh-CN": "字符串",
 						},
 						Key:      "default",
 						Type:     "string",
@@ -95,7 +106,56 @@ func (b *Builtin) Components() []model.Component {
 				OutputAnchors: []model.NodeAnchor{
 					{
 						Name: map[string]string{
-							"zh-CN":"Default",
+							"zh-CN": "Default",
+						},
+						Key:      "default",
+						Type:     "string",
+						List:     false,
+						Optional: false,
+					},
+				},
+			},
+		},
+		{
+			Id:       0,
+			Key:      "go_script",
+			Category: "script",
+			Data: model.ComponentData{
+				Name: map[string]string{
+					"zh-CN": "Golang 脚本",
+				},
+				Source: model.ComponentSource{
+					CmdType:    model.GoScriptCmd,
+					BuiltinCmd: "",
+					GoPackage:  model.ComponentGoPackage{},
+					GoScript: model.ComponentGoScript{
+						Script: `package main
+import (
+    "context"
+    "fmt"
+)
+
+func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+    return params, nil
+}
+					`,
+					},
+				},
+				InputParams: []model.NodeInputParam{
+					{
+						Id: "",
+						Name: map[string]string{
+							"zh-CN": "字符串",
+						},
+						Key:      "default",
+						Type:     "string",
+						Optional: true,
+					},
+				},
+				OutputAnchors: []model.NodeAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Default",
 						},
 						Key:      "default",
 						Type:     "string",
@@ -120,9 +180,9 @@ func (b *Builtin) Components() []model.Component {
 				},
 				InputParams: []model.NodeInputParam{
 					{
-						Id:       "",
+						Id: "",
 						Name: map[string]string{
-							"zh-CN":"数据",
+							"zh-CN": "数据",
 						},
 						Key:      "default",
 						Type:     "any",
@@ -146,7 +206,7 @@ func (b *Builtin) Components() []model.Component {
 				InputAnchors: []model.NodeAnchor{
 					{
 						Name: map[string]string{
-							"zh-CN":"数据",
+							"zh-CN": "数据",
 						},
 						Key:      "data",
 						Type:     "any",
@@ -156,7 +216,7 @@ func (b *Builtin) Components() []model.Component {
 				InputParams: []model.NodeInputParam{
 					{
 						Name: map[string]string{
-							"zh-CN":"Path",
+							"zh-CN": "Path",
 						},
 						Key:      "path",
 						Type:     "string",
@@ -177,13 +237,14 @@ func (b *Builtin) Components() []model.Component {
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "record",
 				},
+				DynamicInput: true,
 				// dynamic input
 				InputAnchors: []model.NodeAnchor{},
 				InputParams:  []model.NodeInputParam{},
 				OutputAnchors: []model.NodeAnchor{
 					{
 						Name: map[string]string{
-							"zh-CN":"集合",
+							"zh-CN": "集合",
 						},
 						Key:      "default",
 						Type:     "any",
@@ -205,6 +266,7 @@ func (b *Builtin) Components() []model.Component {
 				},
 
 				// dynamic input
+				DynamicInput: true,
 				InputAnchors: []model.NodeAnchor{},
 				InputParams: []model.NodeInputParam{
 					{
@@ -272,6 +334,7 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 
 			path := p.(string)
 			data := d.(map[string]interface{})
+			// TODO 使用 goja 来实现，goja 支持更多类型，并且语法和 js 一致。
 			i, ok := lookupMap(data, strings.Split(path, ".")...)
 			if !ok {
 				return nil, nil
