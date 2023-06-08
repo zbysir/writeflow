@@ -197,15 +197,14 @@ func (b *Builtin) Components() []model.Component {
 					GoScript:   model.ComponentGoScript{},
 				},
 				DynamicInput: true,
-				InputParams: []model.NodeInputParam{
+				InputAnchors: []model.NodeInputAnchor{
 					{
 						Id: "",
 						Name: map[string]string{
 							"zh-CN": "Data",
 						},
-						Key:      "data",
-						Type:     "any",
-						Optional: false,
+						Key:  "data",
+						Type: "any",
 					},
 				},
 				// switch 的 output 需要前端做特殊处理，output keys 需要等于 input keys
