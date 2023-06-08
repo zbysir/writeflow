@@ -8,8 +8,10 @@ import (
 	"github.com/dop251/goja"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
+	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/pkg/modules"
 	"github.com/zbysir/writeflow/pkg/schema"
+	"github.com/zbysir/writeflow/pkg/writeflow"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -435,25 +437,45 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 			}
 			return map[string]interface{}{"default": l}, nil
 		}),
-		// 多个分支
+		// 多个分支，只会有一个 key 为 true，如果所有的 key 都是 false，则 default 为 true
 		"switch": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			d := params["data"]
 			if d == nil {
-				return map[string]interface{}{"default": nil}, nil
+				return map[string]interface{}{"default": true}, nil
+			}
+
+			rsp = map[string]interface{}{}
+
+			// 根据 input 定义顺序执行
+			keys := writeflow.GetInputKeys(ctx)
+			if len(keys) == 0 {
+				for k := range params {
+					if k == "data" {
+						continue
+					}
+					keys = append(keys, k)
+				}
 			}
 
 			// 除了 data 都是条件
-
-			rsp = map[string]interface{}{}
-			for k, v := range params {
+			for _, k := range keys {
 				if k == "data" {
 					continue
 				}
 
-				l, err := lookInterface(d, v.(string))
+				v := params[k]
+				// data.a
+				condition, ok := v.(string)
+				if !ok {
+					log.Errorf("switch params error: %+v is not string", params)
+					continue
+				}
+
+				l, err := lookInterface(d, condition)
 				if err != nil {
 					return nil, err
 				}
+
 				if l != nil && l != false {
 					rsp[k] = true
 					break

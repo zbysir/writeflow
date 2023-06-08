@@ -48,6 +48,19 @@ type Node struct {
 	Enable []NodeInput // 只有当 enable 为 true 时，才会执行该节点
 }
 
+type inputKeysKey struct{}
+
+func WithInputKeys(ctx context.Context, inputKeys []string) context.Context {
+	return context.WithValue(ctx, inputKeysKey{}, inputKeys)
+}
+
+func GetInputKeys(ctx context.Context) []string {
+	if v, ok := ctx.Value(inputKeysKey{}).([]string); ok {
+		return v
+	}
+	return nil
+}
+
 type Nodes map[string]Node
 type Flow struct {
 	Nodes        Nodes // node id -> node
@@ -257,7 +270,9 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 	//log.Infof("input %v: %+v", nodeId, inputs)
 
 	dependValue := map[string]interface{}{}
+	var inputKeys []string
 	for _, i := range inputs {
+		inputKeys = append(inputKeys, i.Key)
 		var value interface{}
 		switch i.Type {
 		case NodeInputLiteral:
@@ -305,7 +320,7 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 	if !ok {
 		return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmd), nodeDef.Id)
 	}
-	rsp, err = c.Exec(ctx, dependValue)
+	rsp, err = c.Exec(WithInputKeys(ctx, inputKeys), dependValue)
 	if err != nil {
 		return nil, NewExecNodeError(err, nodeDef.Id)
 	}

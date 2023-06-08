@@ -44,3 +44,18 @@ func TestCallHttp(t *testing.T) {
 
 	assert.NotEqual(t, nil, r["default"])
 }
+
+func TestSwitch(t *testing.T) {
+	r, err := New().Cmd()["switch"].Exec(context.Background(), map[string]interface{}{
+		"data": map[string]string{"a": "b"},
+		"aaa":  "data.a",
+		"bbb":  "data.b",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, true, r["aaa"])
+	assert.Equal(t, nil, r["bbb"])
+}
