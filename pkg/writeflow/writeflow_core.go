@@ -135,7 +135,9 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 		}
 
 		cmd := node.Type
-		if node.Data.Source.BuiltinCmd != "" {
+		if node.Data.Source.CmdType == model.NothingCmd {
+			cmd = model.NothingCmd
+		} else if node.Data.Source.BuiltinCmd != "" {
 			cmd = node.Data.Source.BuiltinCmd
 		}
 
@@ -314,10 +316,13 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 	//log.Printf("dependValue: %+v", dependValue)
 	cmd := nodeDef.Cmd
 	if cmd == "" {
-		cmd = nodeId
+		return nil, NewExecNodeError(fmt.Errorf("cmd is not defined"), nodeDef.Id)
 	}
 	c, ok := f.cmd[cmd]
 	if !ok {
+		if cmd == model.NothingCmd {
+			return nil, nil
+		}
 		return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmd), nodeDef.Id)
 	}
 	rsp, err = c.Exec(WithInputKeys(ctx, inputKeys), dependValue)

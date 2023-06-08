@@ -268,7 +268,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 					GoPackage: model.ComponentGoPackage{},
 					GoScript:  model.ComponentGoScript{},
 				},
-				InputParams: []model.NodeInputParam{
+				InputAnchors: []model.NodeInputAnchor{
 					{
 						Id: "",
 						Name: map[string]string{
