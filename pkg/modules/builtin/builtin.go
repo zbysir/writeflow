@@ -264,9 +264,8 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 					"zh-CN": "输出",
 				},
 				Source: model.ComponentSource{
-					CmdType:   model.NothingCmd,
-					GoPackage: model.ComponentGoPackage{},
-					GoScript:  model.ComponentGoScript{},
+					CmdType:    model.BuiltInCmd,
+					BuiltinCmd: "raw",
 				},
 				InputAnchors: []model.NodeInputAnchor{
 					{

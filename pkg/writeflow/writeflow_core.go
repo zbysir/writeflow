@@ -321,7 +321,7 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 	c, ok := f.cmd[cmd]
 	if !ok {
 		if cmd == model.NothingCmd {
-			return nil, nil
+			return dependValue, nil
 		}
 		return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmd), nodeDef.Id)
 	}
