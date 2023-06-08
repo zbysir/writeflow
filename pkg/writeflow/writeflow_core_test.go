@@ -104,38 +104,31 @@ func TestGetRootNodes(t *testing.T) {
 }
 func TestFromModelFlow(t *testing.T) {
 	f, err := FlowFromModel(&model.Flow{
-		Id:          0,
-		Name:        "demo_flow",
-		Description: "",
+		Name: "demo_flow",
 		Graph: model.Graph{
 			Nodes: []model.Node{
 				{
-					Width:    0,
-					Height:   0,
-					Id:       "hello",
-					Position: model.NodePosition{},
-					Type:     "hello_component",
+					Id:   "hello",
+					Type: "hello_component",
 					Data: model.NodeData{
-
-						Source:       model.ComponentSource{},
+						Source: model.ComponentSource{
+							CmdType:    model.BuiltInCmd,
+							BuiltinCmd: "hello_component",
+							GoPackage:  model.ComponentGoPackage{},
+							GoScript:   model.ComponentGoScript{},
+						},
 						InputAnchors: nil,
 						InputParams: []model.NodeInputParam{
 							{
-								Id:       "",
-								Name:     nil,
-								Key:      "name",
-								Type:     "string",
-								Optional: false,
+								Key:  "name",
+								Type: "string",
 							},
 							{
-								Id:       "",
-								Name:     nil,
-								Key:      "age",
-								Type:     "int",
-								Optional: false,
+								Key:  "age",
+								Type: "int",
 							},
 						},
-						OutputAnchors: []model.NodeInputAnchor{
+						OutputAnchors: []model.NodeOutputAnchor{
 							{
 								Id:   "",
 								Name: nil,
@@ -147,7 +140,6 @@ func TestFromModelFlow(t *testing.T) {
 
 						Inputs: map[string]string{"name": "bysir", "age": "18"},
 					},
-					PositionAbsolute: model.NodePosition{},
 				},
 			},
 			OutputNodeId: "hello",
@@ -195,7 +187,7 @@ func TestOpenAIFlow(t *testing.T) {
 							{Key: "apikey", Type: "string", Optional: false},
 							{Key: "base_url", Type: "string", Optional: false},
 						},
-						OutputAnchors: []model.NodeInputAnchor{
+						OutputAnchors: []model.NodeOutputAnchor{
 							{Key: "default", Type: "llm", List: false},
 						},
 					},
@@ -210,7 +202,7 @@ func TestOpenAIFlow(t *testing.T) {
 							{Key: "query", Type: "string"},
 							{Key: "llm", Type: "llm"},
 						},
-						OutputAnchors: []model.NodeInputAnchor{
+						OutputAnchors: []model.NodeOutputAnchor{
 							{Key: "default", Type: "string", List: false},
 						},
 					},

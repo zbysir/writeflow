@@ -61,7 +61,7 @@ func TestComponentFromModel(t *testing.T) {
 					}
 					`,
 			},
-			OutputAnchors: []model.NodeInputAnchor{
+			OutputAnchors: []model.NodeOutputAnchor{
 				{
 					Id: "",
 					Name: map[string]string{

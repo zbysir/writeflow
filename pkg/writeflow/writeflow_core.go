@@ -7,7 +7,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
-	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"sort"
 	"time"
@@ -155,7 +154,7 @@ func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map
 	}()
 
 	for r := range result {
-		if r.NodeId == flow.OutputNodeId {
+		if r.NodeId == flow.OutputNodeId && r.Status == model.StatusSuccess {
 			rsp = r.Result
 			break
 		}
@@ -174,14 +173,14 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 	runNodes := flow.Nodes.GetRootNodes()
 
 	for _, node := range runNodes {
-		rsp, err := fr.ExecJob(ctx, node.Id, func(result model.NodeStatus) {
+		_, err := fr.ExecJob(ctx, node.Id, func(result model.NodeStatus) {
 			results <- &result
 		})
 		if err != nil {
 			return err
 		}
 
-		log.Infof("node: %v, rsp: %+v", node.Id, rsp)
+		//log.Infof("node: %v, rsp: %+v", node.Id, rsp)
 	}
 
 	return
@@ -244,7 +243,7 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 					NodeId: nodeId,
 					Status: model.StatusSuccess,
 					Error:  "",
-					Result: nil,
+					Result: rsp,
 					RunAt:  start,
 					EndAt:  time.Now(),
 				})
@@ -255,15 +254,15 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 	nodeDef := f.flowDef.Nodes[nodeId]
 
 	inputs := nodeDef.Inputs
-	//log.Printf("input %v: %+v", nodeId, inputs)
+	//log.Infof("input %v: %+v", nodeId, inputs)
 
 	dependValue := map[string]interface{}{}
 	for _, i := range inputs {
 		var value interface{}
 		switch i.Type {
-		case "literal":
+		case NodeInputLiteral:
 			value = i.Literal
-		case "anchor":
+		case NodeInputAnchor:
 			if i.NodeId == "" {
 				// 如果节点 id 为空，则说明是非必填字段。
 				continue
@@ -291,7 +290,7 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 			NodeId: nodeId,
 			Status: model.StatusRunning,
 			Error:  "",
-			Result: rsp,
+			Result: nil,
 			RunAt:  start,
 			EndAt:  time.Time{},
 		})
