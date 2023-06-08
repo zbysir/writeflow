@@ -31,3 +31,16 @@ func TestTemplateText(t *testing.T) {
 
 	assert.Equal(t, "hello bysir", r["default"])
 }
+
+func TestCallHttp(t *testing.T) {
+	r, err := New().Cmd()["call_http"].Exec(context.Background(), map[string]interface{}{
+		"url":    "https://writeflow.bysir.top/api/flow",
+		"body":   "",
+		"method": "GET",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.NotEqual(t, nil, r["default"])
+}

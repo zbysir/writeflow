@@ -311,6 +311,15 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 						Optional: true,
 					},
 				},
+				OutputAnchors: []model.NodeOutputAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Default",
+						},
+						Key:  "default",
+						Type: "any",
+					},
+				},
 			},
 		},
 		{
