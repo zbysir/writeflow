@@ -66,15 +66,14 @@ func (l *LangChain) Components() []model.Component {
 						Optional: false,
 					},
 				},
-				OutputAnchors: []model.NodeAnchor{
+				OutputAnchors: []model.NodeOutputAnchor{
 					{
 						Id: "",
 						Name: map[string]string{
 							"zh-CN": "Default",
 						},
-						Key:      "default",
-						Type:     "langchain/llm",
-						Optional: false,
+						Key:  "default",
+						Type: "langchain/llm",
 					},
 				},
 			},
@@ -92,7 +91,7 @@ func (l *LangChain) Components() []model.Component {
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "langchain_call",
 				},
-				InputAnchors: []model.NodeAnchor{
+				InputAnchors: []model.NodeInputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "LLM",
@@ -109,7 +108,7 @@ func (l *LangChain) Components() []model.Component {
 					},
 				},
 				InputParams: []model.NodeInputParam{},
-				OutputAnchors: []model.NodeAnchor{
+				OutputAnchors: []model.NodeOutputAnchor{
 					{
 						Key:  "default",
 						Type: "string",

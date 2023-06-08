@@ -8,10 +8,11 @@ import (
 type Status = string
 
 const (
-	StatusRunning Status = "running"
-	StatusSuccess Status = "success"
-	StatusFailed  Status = "failed"
-	StatusPending Status = "pending"
+	StatusRunning     Status = "running"
+	StatusSuccess     Status = "success"
+	StatusFailed      Status = "failed"
+	StatusPending     Status = "pending"
+	StatusUnreachable Status = "unreachable" // 被 if 分支忽略
 )
 
 // NodeStatus save node run result

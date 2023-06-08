@@ -20,24 +20,24 @@ func TestGetRootNodes(t *testing.T) {
 					Id:   "hello",
 					Type: "hello_component",
 					Data: model.NodeData{
-						ComponentData: model.ComponentData{
-							InputParams: []model.NodeInputParam{
-								{
-									Id:       "",
-									Name:     nil,
-									Key:      "name",
-									Type:     "string",
-									Optional: false,
-								},
-								{
-									Id:       "",
-									Name:     nil,
-									Key:      "age",
-									Type:     "int",
-									Optional: false,
-								},
+
+						InputParams: []model.NodeInputParam{
+							{
+								Id:       "",
+								Name:     nil,
+								Key:      "name",
+								Type:     "string",
+								Optional: false,
+							},
+							{
+								Id:       "",
+								Name:     nil,
+								Key:      "age",
+								Type:     "int",
+								Optional: false,
 							},
 						},
+
 						Inputs: map[string]string{"name": "bysir", "age": "18"},
 					},
 					PositionAbsolute: model.NodePosition{},
@@ -45,24 +45,24 @@ func TestGetRootNodes(t *testing.T) {
 					Id:   "hello2",
 					Type: "hello_component",
 					Data: model.NodeData{
-						ComponentData: model.ComponentData{
-							InputParams: []model.NodeInputParam{
-								{
-									Id:       "",
-									Name:     nil,
-									Key:      "name",
-									Type:     "string",
-									Optional: false,
-								},
-								{
-									Id:       "",
-									Name:     nil,
-									Key:      "age",
-									Type:     "int",
-									Optional: false,
-								},
+
+						InputParams: []model.NodeInputParam{
+							{
+								Id:       "",
+								Name:     nil,
+								Key:      "name",
+								Type:     "string",
+								Optional: false,
+							},
+							{
+								Id:       "",
+								Name:     nil,
+								Key:      "age",
+								Type:     "int",
+								Optional: false,
 							},
 						},
+
 						Inputs: map[string]string{"name": "bysir", "age": "18"},
 					},
 					PositionAbsolute: model.NodePosition{},
@@ -71,18 +71,18 @@ func TestGetRootNodes(t *testing.T) {
 					Id:   "hello3",
 					Type: "hello_component",
 					Data: model.NodeData{
-						ComponentData: model.ComponentData{
-							InputAnchors: []model.NodeAnchor{
-								{
-									Id:       "",
-									Name:     nil,
-									Key:      "to_hello2",
-									Type:     "",
-									List:     false,
-									Optional: false,
-								},
+
+						InputAnchors: []model.NodeInputAnchor{
+							{
+								Id:       "",
+								Name:     nil,
+								Key:      "to_hello2",
+								Type:     "",
+								List:     false,
+								Optional: false,
 							},
 						},
+
 						Inputs: map[string]string{"to_hello2": "hello2.name"},
 					},
 					PositionAbsolute: model.NodePosition{},
@@ -116,35 +116,35 @@ func TestFromModelFlow(t *testing.T) {
 					Position: model.NodePosition{},
 					Type:     "hello_component",
 					Data: model.NodeData{
-						ComponentData: model.ComponentData{
-							Source:       model.ComponentSource{},
-							InputAnchors: nil,
-							InputParams: []model.NodeInputParam{
-								{
-									Id:       "",
-									Name:     nil,
-									Key:      "name",
-									Type:     "string",
-									Optional: false,
-								},
-								{
-									Id:       "",
-									Name:     nil,
-									Key:      "age",
-									Type:     "int",
-									Optional: false,
-								},
+
+						Source:       model.ComponentSource{},
+						InputAnchors: nil,
+						InputParams: []model.NodeInputParam{
+							{
+								Id:       "",
+								Name:     nil,
+								Key:      "name",
+								Type:     "string",
+								Optional: false,
 							},
-							OutputAnchors: []model.NodeAnchor{
-								{
-									Id:   "",
-									Name: nil,
-									Key:  "default",
-									Type: "string",
-									List: false,
-								},
+							{
+								Id:       "",
+								Name:     nil,
+								Key:      "age",
+								Type:     "int",
+								Optional: false,
 							},
 						},
+						OutputAnchors: []model.NodeInputAnchor{
+							{
+								Id:   "",
+								Name: nil,
+								Key:  "default",
+								Type: "string",
+								List: false,
+							},
+						},
+
 						Inputs: map[string]string{"name": "bysir", "age": "18"},
 					},
 					PositionAbsolute: model.NodePosition{},
@@ -190,14 +190,13 @@ func TestOpenAIFlow(t *testing.T) {
 					Type: "openai",
 					Data: model.NodeData{
 						Inputs: map[string]string{"apikey": "sk-xx"},
-						ComponentData: model.ComponentData{
-							InputParams: []model.NodeInputParam{
-								{Key: "apikey", Type: "string", Optional: false},
-								{Key: "base_url", Type: "string", Optional: false},
-							},
-							OutputAnchors: []model.NodeAnchor{
-								{Key: "default", Type: "llm", List: false},
-							},
+
+						InputParams: []model.NodeInputParam{
+							{Key: "apikey", Type: "string", Optional: false},
+							{Key: "base_url", Type: "string", Optional: false},
+						},
+						OutputAnchors: []model.NodeInputAnchor{
+							{Key: "default", Type: "llm", List: false},
 						},
 					},
 				},
@@ -206,14 +205,13 @@ func TestOpenAIFlow(t *testing.T) {
 					Type: "call",
 					Data: model.NodeData{
 						Inputs: map[string]string{"query": "INPUT.query", "llm": "openai.default"},
-						ComponentData: model.ComponentData{
-							InputAnchors: []model.NodeAnchor{
-								{Key: "query", Type: "string"},
-								{Key: "llm", Type: "llm"},
-							},
-							OutputAnchors: []model.NodeAnchor{
-								{Key: "default", Type: "string", List: false},
-							},
+
+						InputAnchors: []model.NodeInputAnchor{
+							{Key: "query", Type: "string"},
+							{Key: "llm", Type: "llm"},
+						},
+						OutputAnchors: []model.NodeInputAnchor{
+							{Key: "default", Type: "string", List: false},
 						},
 					},
 				},

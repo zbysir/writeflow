@@ -2,6 +2,7 @@ package writeflow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/samber/lo"
 	"github.com/zbysir/writeflow/internal/cmd"
@@ -9,7 +10,6 @@ import (
 	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -46,6 +46,7 @@ type Node struct {
 	Id     string
 	Cmd    string
 	Inputs []NodeInput
+	Enable []NodeInput // 只有当 enable 为 true 时，才会执行该节点
 }
 
 type Nodes map[string]Node
@@ -100,20 +101,14 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 			inputs = append(inputs, NodeInput{
 				Key:       input.Key,
 				Type:      "literal",
-				Literal:   node.Data.Inputs[input.Key],
+				Literal:   node.Data.GetInputValue(input.Key),
 				NodeId:    "",
 				OutputKey: "",
 			})
 		}
 
 		for _, input := range node.Data.InputAnchors {
-			ss := strings.Split(node.Data.Inputs[input.Key], ".")
-			var nodeId string
-			var outputKey string
-			if len(ss) > 1 {
-				nodeId = ss[0]
-				outputKey = ss[1]
-			}
+			nodeId, outputKey := node.Data.GetInputAnchorValue(input.Key)
 			if nodeId == "" && !input.Optional {
 				return nil, fmt.Errorf("input '%v' for node '%v' is not defined", input.Key, node.Id)
 			}
@@ -218,25 +213,38 @@ func (e *ExecNodeError) Unwrap() error {
 	return e.Cause
 }
 
+var ErrNodeUnreachable = errors.New("node unreachable")
+
 func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
 	start := time.Now()
 	defer func() {
 		if onNodeRun != nil {
 			if err != nil {
-				onNodeRun(model.NodeStatus{
-					NodeId: nodeId,
-					Status: model.StatusFailed,
-					Error:  err.Error(),
-					Result: nil,
-					RunAt:  start,
-					EndAt:  time.Now(),
-				})
+				if err == ErrNodeUnreachable || err.Error() == ErrNodeUnreachable.Error() {
+					onNodeRun(model.NodeStatus{
+						NodeId: nodeId,
+						Status: model.StatusUnreachable,
+						Error:  "",
+						Result: nil,
+						RunAt:  start,
+						EndAt:  time.Now(),
+					})
+				} else {
+					onNodeRun(model.NodeStatus{
+						NodeId: nodeId,
+						Status: model.StatusFailed,
+						Error:  err.Error(),
+						Result: nil,
+						RunAt:  start,
+						EndAt:  time.Now(),
+					})
+				}
 			} else {
 				onNodeRun(model.NodeStatus{
 					NodeId: nodeId,
 					Status: model.StatusSuccess,
 					Error:  "",
-					Result: rsp,
+					Result: nil,
 					RunAt:  start,
 					EndAt:  time.Now(),
 				})
@@ -266,7 +274,7 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 			} else {
 				rsps, err := f.ExecJob(ctx, i.NodeId, onNodeRun)
 				if err != nil {
-					return nil, fmt.Errorf("exec task '%s' err: %v", i.NodeId, err)
+					return nil, fmt.Errorf("exec task '%s' err: %w", i.NodeId, err)
 				}
 
 				value = rsps[i.OutputKey]

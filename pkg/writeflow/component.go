@@ -47,7 +47,12 @@ func ComponentFromModel(m *model.Component, builtinCmd map[string]schema.CMDer) 
 
 	switch m.Data.Source.CmdType {
 	case model.GoScriptCmd:
-		cmder, err = cmd.NewGoScript(nil, "", m.Data.Source.GoScript.Script)
+		key := m.Data.Source.GoScript.InputKey
+		if key == "" {
+			key = "script"
+		}
+		script := m.Data.GetInputValue(key)
+		cmder, err = cmd.NewGoScript(nil, "", script)
 		if err != nil {
 			return
 		}

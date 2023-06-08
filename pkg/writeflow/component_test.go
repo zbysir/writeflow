@@ -12,20 +12,11 @@ func TestComponentFromModel(t *testing.T) {
 			//Id:          "",
 			Source: model.ComponentSource{
 				CmdType: model.GoScriptCmd,
-				GoScript: model.ComponentGoScript{Script: `package main
-					import (
-
-				"context"
-				"fmt"
-				)
-					
-					func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-						return map[string]interface{}{"msg": fmt.Sprintf("hello %v, your age is: %v", params["name"], params["age"])}, nil
-					}
-					`,
+				GoScript: model.ComponentGoScript{
+					InputKey: "script",
 				},
 			},
-			InputAnchors: []model.NodeAnchor{
+			InputAnchors: []model.NodeInputAnchor{
 				{
 					Id: "",
 					Name: map[string]string{
@@ -45,8 +36,32 @@ func TestComponentFromModel(t *testing.T) {
 					List: false,
 				},
 			},
-			InputParams: nil,
-			OutputAnchors: []model.NodeAnchor{
+			InputParams: []model.NodeInputParam{
+				{
+					Id:          "",
+					Name:        nil,
+					Key:         "script",
+					Type:        "string",
+					DisplayType: "code/go",
+					Optional:    false,
+					Dynamic:     false,
+					Value:       "",
+				},
+			},
+			Inputs: map[string]string{
+				"script": `package main
+					import (
+
+				"context"
+				"fmt"
+				)
+					
+					func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+						return map[string]interface{}{"msg": fmt.Sprintf("hello %v, your age is: %v", params["name"], params["age"])}, nil
+					}
+					`,
+			},
+			OutputAnchors: []model.NodeInputAnchor{
 				{
 					Id: "",
 					Name: map[string]string{

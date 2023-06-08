@@ -1,12 +1,17 @@
+<!-- radio, prod or local -->
+<input type="radio" name="env" value="prod" checked> prod
+<input type="radio" name="env" value="local"> local
+<br>
 <!-- input, id is flow-id -->
 <input type="text" id="flow-id" value="6">
 <!-- button , click will fetch a api -->
-<button class="btn btn-primary" id="btn">Test</button>
+<button class="btn btn-primary" id="btn">Run</button>
 
 <!-- result div, id is result -->
 <div id="result"></div>
 
 <script>
+
   function appendMsg(msg) {
     const result = document.getElementById("result")
     result.innerHTML += `<p>${msg}</p>`
@@ -19,6 +24,23 @@
 
   const btn = document.getElementById("btn")
   btn.onclick = function () {
+    let host = 'localhost:9433'
+    let protocol = ''
+
+    const env = document.getElementsByName("env")
+    for (let i = 0; i < env.length; i++) {
+      if (env[i].checked) {
+        if (env[i].value === "prod") {
+          host = 'writeflow.bysir.top'
+          protocol = 's'
+        } else {
+          host = 'localhost:9433'
+          protocol = ''
+        }
+      }
+    }
+    console.log('env:', host)
+
     clearMsg()
     // get flow id
     const flowId = +document.getElementById("flow-id").value
@@ -26,7 +48,7 @@
     appendMsg(`flow id: ${flowId}`)
 
     // fetch url with post method
-    fetch("//localhost:9433/api/flow/run", {
+    fetch(`http${protocol}://${host}/api/flow/run`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -45,7 +67,7 @@
       const runId = data
       appendMsg(`run id: ${runId}`)
 
-      const ws = new WebSocket(`ws://localhost:9433/api/ws/${runId}`)
+      const ws = new WebSocket(`ws${protocol}://${host}/api/ws/${runId}`)
       ws.onerror = function (e) {
         console.log('WebSocket 链接错误，请检查控制台',e)
       }
