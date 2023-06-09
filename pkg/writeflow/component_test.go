@@ -7,7 +7,7 @@ import (
 
 func TestComponentFromModel(t *testing.T) {
 	cmd, m, err := ComponentFromModel(&model.Component{
-		Key: "demo",
+		Type: "demo",
 		Data: model.ComponentData{
 			//Id:          "",
 			Source: model.ComponentSource{
@@ -18,7 +18,6 @@ func TestComponentFromModel(t *testing.T) {
 			},
 			InputAnchors: []model.NodeInputAnchor{
 				{
-					Id: "",
 					Name: map[string]string{
 						"zh-CN": "姓名",
 					},
@@ -27,7 +26,6 @@ func TestComponentFromModel(t *testing.T) {
 					List: false,
 				},
 				{
-					Id: "",
 					Name: map[string]string{
 						"zh-CN": "年龄",
 					},
@@ -38,7 +36,6 @@ func TestComponentFromModel(t *testing.T) {
 			},
 			InputParams: []model.NodeInputParam{
 				{
-					Id:          "",
 					Name:        nil,
 					Key:         "script",
 					Type:        "string",
@@ -63,7 +60,6 @@ func TestComponentFromModel(t *testing.T) {
 			},
 			OutputAnchors: []model.NodeOutputAnchor{
 				{
-					Id: "",
 					Name: map[string]string{
 						"zh-CN": "信息",
 					},

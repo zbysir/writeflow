@@ -40,7 +40,7 @@ func (l *LangChain) Components() []model.Component {
 	return []model.Component{
 		{
 			Id:       0,
-			Key:      "new_openai",
+			Type:     "new_openai",
 			Category: "llm",
 			Data: model.ComponentData{
 				Name: map[string]string{
@@ -57,7 +57,6 @@ func (l *LangChain) Components() []model.Component {
 				InputAnchors: nil,
 				InputParams: []model.NodeInputParam{
 					{
-						Id: "",
 						Name: map[string]string{
 							"zh-CN": "ApiKey",
 						},
@@ -68,7 +67,6 @@ func (l *LangChain) Components() []model.Component {
 				},
 				OutputAnchors: []model.NodeOutputAnchor{
 					{
-						Id: "",
 						Name: map[string]string{
 							"zh-CN": "Default",
 						},
@@ -79,7 +77,7 @@ func (l *LangChain) Components() []model.Component {
 			},
 		},
 		{
-			Key:      "langchain_call",
+			Type:     "langchain_call",
 			Category: "llm",
 			Data: model.ComponentData{
 				Name: map[string]string{

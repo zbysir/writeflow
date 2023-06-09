@@ -63,7 +63,7 @@ func ComponentFromModel(m *model.Component, builtinCmd map[string]schema.CMDer) 
 	}
 
 	sc = cmd.Schema{
-		Key:     m.Key,
+		Key:     m.Type,
 		Inputs:  input,
 		Outputs: output,
 	}

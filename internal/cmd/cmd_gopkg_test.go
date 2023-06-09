@@ -18,7 +18,7 @@ func TestGoCMd(t *testing.T) {
 	//cs := c.Schema()
 	//
 	//for _, o := range cs.Outputs {
-	//	t.Logf("%+v(%s): %v", o.Key, o.Key, rr[o.Key])
+	//	t.Logf("%+v(%s): %v", o.Type, o.Type, rr[o.Type])
 	//}
 	t.Logf("%+v", rr)
 	//t.Logf("%+v", cs)

@@ -23,14 +23,12 @@ func TestGetRootNodes(t *testing.T) {
 
 						InputParams: []model.NodeInputParam{
 							{
-								Id:       "",
 								Name:     nil,
 								Key:      "name",
 								Type:     "string",
 								Optional: false,
 							},
 							{
-								Id:       "",
 								Name:     nil,
 								Key:      "age",
 								Type:     "int",
@@ -48,14 +46,12 @@ func TestGetRootNodes(t *testing.T) {
 
 						InputParams: []model.NodeInputParam{
 							{
-								Id:       "",
 								Name:     nil,
 								Key:      "name",
 								Type:     "string",
 								Optional: false,
 							},
 							{
-								Id:       "",
 								Name:     nil,
 								Key:      "age",
 								Type:     "int",
@@ -74,7 +70,6 @@ func TestGetRootNodes(t *testing.T) {
 
 						InputAnchors: []model.NodeInputAnchor{
 							{
-								Id:       "",
 								Name:     nil,
 								Key:      "to_hello2",
 								Type:     "",
@@ -102,6 +97,58 @@ func TestGetRootNodes(t *testing.T) {
 	assert.Equal(t, "hello", nodes[0].Id)
 	assert.Equal(t, "hello3", nodes[1].Id)
 }
+
+func TestEnable(t *testing.T) {
+	f := Flow{
+		Nodes: map[string]Node{
+			"a": {
+				Id:  "",
+				Cmd: model.NothingCmd,
+				Inputs: []NodeInput{
+					{
+						Key:       "_enable",
+						Type:      "literal",
+						Literal:   "false",
+						NodeId:    "",
+						OutputKey: "",
+					},
+					{
+						Key:       "b",
+						Type:      "anchor",
+						Literal:   "",
+						NodeId:    "b",
+						OutputKey: "b",
+					},
+				},
+			},
+			"b": {
+				Id:  "",
+				Cmd: model.NothingCmd,
+				Inputs: []NodeInput{
+					{
+						Key:       "b",
+						Type:      "literal",
+						Literal:   "b",
+						NodeId:    "",
+						OutputKey: "",
+					},
+				},
+			},
+		},
+		OutputNodeId: "a",
+	}
+
+	r := newRunner(nil, &f)
+	rsp, err := r.ExecNode(context.Background(), "a", func(result model.NodeStatus) {
+		t.Logf("%+v", result)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("%+v", rsp)
+}
+
 func TestFromModelFlow(t *testing.T) {
 	f, err := FlowFromModel(&model.Flow{
 		Name: "demo_flow",
@@ -130,7 +177,6 @@ func TestFromModelFlow(t *testing.T) {
 						},
 						OutputAnchors: []model.NodeOutputAnchor{
 							{
-								Id:   "",
 								Name: nil,
 								Key:  "default",
 								Type: "string",

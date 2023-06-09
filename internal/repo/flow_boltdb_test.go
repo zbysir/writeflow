@@ -19,7 +19,7 @@ func TestComponent(t *testing.T) {
 	f := NewBoltDBFlow(s)
 	ctx := context.Background()
 	err = f.CreateComponent(ctx, &model.Component{
-		Key:      "openai",
+		Type:     "openai",
 		Category: "",
 		Data: model.ComponentData{
 			Name:        nil,

@@ -25,7 +25,7 @@ type Locales map[string]string
 
 type Component struct {
 	Id       int64         `json:"id"`
-	Key      string        `json:"key"`      // 组件类型，需要全局唯一
+	Type     string        `json:"type"`     // 组件类型，需要全局唯一
 	Category string        `json:"category"` // category key
 	Data     ComponentData `json:"data"`
 }
@@ -69,7 +69,7 @@ type Node struct {
 	Width            int          `json:"width"`
 	Height           int          `json:"height"`
 	Position         NodePosition `json:"position"`
-	Type             string       `json:"type"` // = Component.Key
+	Type             string       `json:"type"` // = Component.Type
 	Data             NodeData     `json:"data"`
 	PositionAbsolute NodePosition `json:"position_absolute,omitempty"`
 }
@@ -100,7 +100,6 @@ type ComponentSource struct {
 }
 
 type NodeInputAnchor struct {
-	Id              string            `json:"id"`
 	Name            map[string]string `json:"name"`
 	Key             string            `json:"key"`
 	Type            string            `json:"type"`           // 数据模型，如 string / int / any
@@ -112,16 +111,14 @@ type NodeInputAnchor struct {
 }
 
 type NodeOutputAnchor struct {
-	Id              string            `json:"id"`
-	Name            map[string]string `json:"name"`
-	Key             string            `json:"key"`
-	Type            string            `json:"type"`           // 数据模型，如 string / int / any
-	List            bool              `json:"list,omitempty"` // 是否是数组
-	Dynamic         bool              `json:"dynamic,omitempty"` // 是否是动态输入，是动态输入才能删除。
+	Name    map[string]string `json:"name"`
+	Key     string            `json:"key"`
+	Type    string            `json:"type"`              // 数据模型，如 string / int / any
+	List    bool              `json:"list,omitempty"`    // 是否是数组
+	Dynamic bool              `json:"dynamic,omitempty"` // 是否是动态输入，是动态输入才能删除。
 }
 
 type NodeInputParam struct {
-	Id          string            `json:"id"`
 	Name        map[string]string `json:"name"`
 	Key         string            `json:"key"`
 	Type        string            `json:"type"`         // 数据模型，如 string / int / any
@@ -134,16 +131,16 @@ type NodeInputParam struct {
 type NodeData = ComponentData
 
 type ComponentData struct {
-	Name          Locales           `json:"name"`
-	Icon          string            `json:"icon"`
-	Description   Locales           `json:"description"`
-	Source        ComponentSource   `json:"source"`
-	DynamicInput  bool              `json:"dynamic_input"`            // 是否可以添加动态输入
-	DynamicOutput bool              `json:"dynamic_output"`           // 输出是否和动态输入一样
-	InputAnchors  []NodeInputAnchor `json:"input_anchors,omitempty"`  // 输入锚点定义
-	InputParams   []NodeInputParam  `json:"input_params,omitempty"`   // 字面参数定义
+	Name          Locales            `json:"name"`
+	Icon          string             `json:"icon"`
+	Description   Locales            `json:"description"`
+	Source        ComponentSource    `json:"source"`
+	DynamicInput  bool               `json:"dynamic_input"`            // 是否可以添加动态输入
+	DynamicOutput bool               `json:"dynamic_output"`           // 输出是否和动态输入一样
+	InputAnchors  []NodeInputAnchor  `json:"input_anchors,omitempty"`  // 输入锚点定义
+	InputParams   []NodeInputParam   `json:"input_params,omitempty"`   // 字面参数定义
 	OutputAnchors []NodeOutputAnchor `json:"output_anchors,omitempty"` // 输出锚点定义
-	Inputs        map[string]string `json:"inputs"`                   // key -> response (node_id.output_key)
+	Inputs        map[string]string  `json:"inputs"`                   // key -> response (node_id.output_key)
 }
 
 func (d *ComponentData) GetInputValue(key string) string {

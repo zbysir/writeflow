@@ -176,7 +176,7 @@ func (b *BoltDBFlow) GetComponentByKeys(ctx context.Context, keys []string) (com
 }
 
 func (b *BoltDBFlow) CreateComponent(ctx context.Context, component *model.Component) (err error) {
-	if component.Key == "" {
+	if component.Type == "" {
 		return fmt.Errorf("key is empty")
 	}
 
@@ -184,7 +184,7 @@ func (b *BoltDBFlow) CreateComponent(ctx context.Context, component *model.Compo
 	if err != nil {
 		return err
 	}
-	err = b.store.Put("component/key/"+component.Key, bs, nil)
+	err = b.store.Put("component/key/"+component.Type, bs, nil)
 	if err != nil {
 		return err
 	}

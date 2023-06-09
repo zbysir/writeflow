@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/samber/lo"
+	"github.com/spf13/cast"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -45,7 +47,6 @@ type Node struct {
 	Id     string
 	Cmd    string
 	Inputs []NodeInput
-	Enable []NodeInput // 只有当 enable 为 true 时，才会执行该节点
 }
 
 type inputKeysKey struct{}
@@ -188,7 +189,7 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 	runNodes := flow.Nodes.GetRootNodes()
 
 	for _, node := range runNodes {
-		_, err := fr.ExecJob(ctx, node.Id, func(result model.NodeStatus) {
+		_, err := fr.ExecNode(ctx, node.Id, func(result model.NodeStatus) {
 			results <- &result
 		})
 		if err != nil {
@@ -204,7 +205,28 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 type runner struct {
 	cmd         map[string]schema.CMDer // id -> cmder
 	flowDef     *Flow
-	cmdRspCache map[string]map[string]interface{}
+	cmdRspCache map[string]map[string]interface{} // nodeId->key->value
+	l           sync.RWMutex
+}
+
+func (r *runner) getRspCache(nodeId string, key string) (v interface{}, exist bool) {
+	r.l.RLock()
+	defer r.l.RUnlock()
+
+	if r.cmdRspCache[nodeId] == nil {
+		return nil, false
+	}
+	v = r.cmdRspCache[nodeId][key]
+	exist = true
+	return
+}
+
+func (r *runner) setRspCache(nodeId string, rsp map[string]interface{}) {
+	r.l.Lock()
+	defer r.l.Unlock()
+
+	r.cmdRspCache[nodeId] = rsp
+	return
 }
 
 func newRunner(cmd map[string]schema.CMDer, flowDef *Flow) *runner {
@@ -229,7 +251,7 @@ func (e *ExecNodeError) Unwrap() error {
 
 var ErrNodeUnreachable = errors.New("node unreachable")
 
-func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
+func (f *runner) ExecNode(ctx context.Context, nodeId string, onNodeRun func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
 	start := time.Now()
 	defer func() {
 		if onNodeRun != nil {
@@ -243,6 +265,7 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 						RunAt:  start,
 						EndAt:  time.Now(),
 					})
+					err = nil
 				} else {
 					onNodeRun(model.NodeStatus{
 						NodeId: nodeId,
@@ -263,6 +286,10 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 					EndAt:  time.Now(),
 				})
 			}
+		} else {
+			if err == ErrNodeUnreachable || err.Error() == ErrNodeUnreachable.Error() {
+				err = nil
+			}
 		}
 	}()
 
@@ -271,10 +298,7 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 	inputs := nodeDef.Inputs
 	//log.Infof("input %v: %+v", nodeId, inputs)
 
-	dependValue := map[string]interface{}{}
-	var inputKeys []string
-	for _, i := range inputs {
-		inputKeys = append(inputKeys, i.Key)
+	var calcInput = func(i NodeInput) (interface{}, error) {
 		var value interface{}
 		switch i.Type {
 		case NodeInputLiteral:
@@ -282,24 +306,52 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 		case NodeInputAnchor:
 			if i.NodeId == "" {
 				// 如果节点 id 为空，则说明是非必填字段。
-				continue
+				return nil, nil
 			}
-			if f.cmdRspCache[i.NodeId] != nil {
-				//log.Printf("i.NodeId %v: %+v", i.NodeId, f.cmdRspCache[i.NodeId])
-				value = f.cmdRspCache[i.NodeId][i.OutputKey]
+			v, ok := f.getRspCache(i.NodeId, i.OutputKey)
+			if ok {
+				value = v
 			} else {
-				rsps, err := f.ExecJob(ctx, i.NodeId, onNodeRun)
+				rsps, err := f.ExecNode(ctx, i.NodeId, onNodeRun)
 				if err != nil {
-					return nil, fmt.Errorf("exec task '%s' err: %w", i.NodeId, err)
+					return nil, err
 				}
-
 				value = rsps[i.OutputKey]
 
-				f.cmdRspCache[i.NodeId] = rsps
+				f.setRspCache(i.NodeId, rsps)
 			}
 		}
 
-		dependValue[i.Key] = value
+		return value, nil
+	}
+
+	// _enable 为 false 时，跳过执行。
+	for _, i := range inputs {
+		if i.Key == "_enable" {
+			r, err := calcInput(i)
+			if err != nil {
+				return nil, err
+			}
+			if cast.ToBool(r) == false {
+				return nil, ErrNodeUnreachable
+			}
+		}
+	}
+
+	dependValue := map[string]interface{}{}
+	var inputKeys []string
+	for _, i := range inputs {
+		if i.Key == "_enable" {
+			continue
+		}
+		inputKeys = append(inputKeys, i.Key)
+
+		r, err := calcInput(i)
+		if err != nil {
+			return nil, err
+		}
+
+		dependValue[i.Key] = r
 	}
 
 	if onNodeRun != nil {
@@ -321,6 +373,7 @@ func (f *runner) ExecJob(ctx context.Context, nodeId string, onNodeRun func(resu
 	c, ok := f.cmd[cmd]
 	if !ok {
 		if cmd == model.NothingCmd {
+			// 如果不需要执行任何命令，则直接返回 input
 			return dependValue, nil
 		}
 		return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmd), nodeDef.Id)

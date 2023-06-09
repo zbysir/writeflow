@@ -86,7 +86,7 @@ func (w *WriteFlow) GetComponentByKey(key string) (c model.Component, exist bool
 	}
 
 	for _, c := range components {
-		if key == c.Key {
+		if key == c.Type {
 			return c, true, nil
 		}
 	}

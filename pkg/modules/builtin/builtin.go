@@ -93,7 +93,7 @@ func (b *Builtin) Components() []model.Component {
 	return []model.Component{
 		{
 			Id:       0,
-			Key:      "input_string",
+			Type:     "input_string",
 			Category: "input",
 			Data: model.ComponentData{
 				Name: map[string]string{
@@ -107,7 +107,6 @@ func (b *Builtin) Components() []model.Component {
 				},
 				InputParams: []model.NodeInputParam{
 					{
-						Id: "",
 						Name: map[string]string{
 							"zh-CN": "字符串",
 						},
@@ -127,9 +126,10 @@ func (b *Builtin) Components() []model.Component {
 					},
 				},
 			},
-		}, {
+		},
+		{
 			Id:       0,
-			Key:      "call_http",
+			Type:     "call_http",
 			Category: "data",
 			Data: model.ComponentData{
 				Name: map[string]string{
@@ -143,7 +143,6 @@ func (b *Builtin) Components() []model.Component {
 				},
 				InputParams: []model.NodeInputParam{
 					{
-						Id: "",
 						Name: map[string]string{
 							"zh-CN": "URL",
 						},
@@ -152,7 +151,6 @@ func (b *Builtin) Components() []model.Component {
 						Optional: true,
 					},
 					{
-						Id: "",
 						Name: map[string]string{
 							"zh-CN": "Body",
 						},
@@ -161,7 +159,6 @@ func (b *Builtin) Components() []model.Component {
 						Optional: true,
 					},
 					{
-						Id: "",
 						Name: map[string]string{
 							"zh-CN": "方法 [GET/POST/PUT/DELETE]",
 						},
@@ -184,7 +181,7 @@ func (b *Builtin) Components() []model.Component {
 		},
 		{
 			Id:       0,
-			Key:      "switch",
+			Type:     "switch",
 			Category: "logic",
 			Data: model.ComponentData{
 				Name: map[string]string{
@@ -196,14 +193,23 @@ func (b *Builtin) Components() []model.Component {
 					GoPackage:  model.ComponentGoPackage{},
 					GoScript:   model.ComponentGoScript{},
 				},
-				DynamicInput: true,
+				DynamicInput:  true,
+				DynamicOutput: true,
 				InputAnchors: []model.NodeInputAnchor{
 					{
-						Id: "",
 						Name: map[string]string{
 							"zh-CN": "Data",
 						},
 						Key:  "data",
+						Type: "any",
+					},
+				},
+				OutputAnchors: []model.NodeOutputAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Default",
+						},
+						Key:  "default",
 						Type: "any",
 					},
 				},
@@ -212,7 +218,7 @@ func (b *Builtin) Components() []model.Component {
 		},
 		{
 			Id:       0,
-			Key:      "go_script",
+			Type:     "go_script",
 			Category: "script",
 			Data: model.ComponentData{
 				Name: map[string]string{
@@ -228,7 +234,6 @@ func (b *Builtin) Components() []model.Component {
 				},
 				InputParams: []model.NodeInputParam{
 					{
-						Id: "",
 						Name: map[string]string{
 							"zh-CN": "脚本代码",
 						},
@@ -256,7 +261,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 		},
 		{
 			Id:       0,
-			Key:      "output",
+			Type:     "output",
 			Category: "output",
 			Data: model.ComponentData{
 				Name: map[string]string{
@@ -268,7 +273,6 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 				},
 				InputAnchors: []model.NodeInputAnchor{
 					{
-						Id: "",
 						Name: map[string]string{
 							"zh-CN": "数据",
 						},
@@ -281,7 +285,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 		},
 		{
 			Id:       0,
-			Key:      "select",
+			Type:     "select",
 			Category: "data",
 			Data: model.ComponentData{
 				Name: map[string]string{
@@ -324,7 +328,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 		},
 		{
 			Id:       0,
-			Key:      "record",
+			Type:     "record",
 			Category: "data",
 			Data: model.ComponentData{
 				Name: map[string]string{
@@ -350,7 +354,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 			},
 		},
 		{
-			Key:      "template_text",
+			Type:     "template_text",
 			Category: "text",
 			Data: model.ComponentData{
 				Name: map[string]string{
