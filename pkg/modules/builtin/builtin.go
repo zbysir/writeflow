@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/dop251/goja"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/internal/pkg/log"
@@ -189,12 +188,12 @@ func (b *Builtin) Components() []model.Component {
 				},
 				Source: model.ComponentSource{
 					CmdType:    model.BuiltInCmd,
-					BuiltinCmd: "switch",
+					BuiltinCmd: "_switch",
 					GoPackage:  model.ComponentGoPackage{},
 					GoScript:   model.ComponentGoScript{},
 				},
-				DynamicInput:  true,
-				DynamicOutput: true,
+				// DynamicInput for conditions
+				DynamicInput: true,
 				InputAnchors: []model.NodeInputAnchor{
 					{
 						Name: map[string]string{
@@ -214,6 +213,47 @@ func (b *Builtin) Components() []model.Component {
 					},
 				},
 				// switch 的 output 需要前端做特殊处理，output keys 需要等于 input keys
+			},
+		},
+		{
+			Id:       0,
+			Type:     "for",
+			Category: "logic",
+			Data: model.ComponentData{
+				Name: map[string]string{
+					"zh-CN": "For",
+				},
+				Source: model.ComponentSource{
+					CmdType:    model.BuiltInCmd,
+					BuiltinCmd: "_for",
+					GoPackage:  model.ComponentGoPackage{},
+					GoScript:   model.ComponentGoScript{},
+				},
+				InputAnchors: []model.NodeInputAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Data",
+						},
+						Key:  "data",
+						Type: "any",
+					},
+					{
+						Name: map[string]string{
+							"zh-CN": "Item",
+						},
+						Key:  "item",
+						Type: "any",
+					},
+				},
+				OutputAnchors: []model.NodeOutputAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Default",
+						},
+						Key:  "default",
+						Type: "any",
+					},
+				},
 			},
 		},
 		{
@@ -433,7 +473,7 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 			}
 
 			path := p.(string)
-			l, err := lookInterface(d, path)
+			l, err := writeflow.LookInterface(d, path)
 			if err != nil {
 				return nil, err
 			}
@@ -473,7 +513,7 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 					continue
 				}
 
-				l, err := lookInterface(d, condition)
+				l, err := writeflow.LookInterface(d, condition)
 				if err != nil {
 					return nil, err
 				}
@@ -530,17 +570,6 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 			return map[string]interface{}{"default": i}, nil
 		}),
 	}
-}
-
-func lookInterface(i interface{}, key string) (v interface{}, err error) {
-	r := goja.New()
-	r.Set("data", i)
-
-	out, err := r.RunScript("look_interface", fmt.Sprintf("%v", key))
-	if err != nil {
-		return nil, err
-	}
-	return out.Export(), nil
 }
 
 func lookupMap(m map[string]interface{}, keys ...string) (interface{}, bool) {

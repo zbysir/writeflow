@@ -2,9 +2,11 @@ package writeflow
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
+	"github.com/zbysir/writeflow/pkg/schema"
 	"testing"
 	"time"
 )
@@ -98,26 +100,32 @@ func TestGetRootNodes(t *testing.T) {
 	assert.Equal(t, "hello3", nodes[1].Id)
 }
 
-func TestEnable(t *testing.T) {
+func TestSwitch(t *testing.T) {
 	f := Flow{
 		Nodes: map[string]Node{
 			"a": {
-				Id:  "",
-				Cmd: model.NothingCmd,
+				Cmd: "_switch",
 				Inputs: []NodeInput{
 					{
-						Key:       "_enable",
+						Key:       "data",
 						Type:      "literal",
-						Literal:   "false",
+						Literal:   "a",
 						NodeId:    "",
 						OutputKey: "",
 					},
 					{
-						Key:       "b",
+						Key:       "data=='c'",
+						Type:      "anchor",
+						Literal:   "",
+						NodeId:    "c",
+						OutputKey: "default",
+					},
+					{
+						Key:       "data=='a'",
 						Type:      "anchor",
 						Literal:   "",
 						NodeId:    "b",
-						OutputKey: "b",
+						OutputKey: "default",
 					},
 				},
 			},
@@ -126,9 +134,22 @@ func TestEnable(t *testing.T) {
 				Cmd: model.NothingCmd,
 				Inputs: []NodeInput{
 					{
-						Key:       "b",
+						Key:       "default",
 						Type:      "literal",
 						Literal:   "b",
+						NodeId:    "",
+						OutputKey: "",
+					},
+				},
+			},
+			"c": {
+				Id:  "",
+				Cmd: model.NothingCmd,
+				Inputs: []NodeInput{
+					{
+						Key:       "default",
+						Type:      "literal",
+						Literal:   "c",
 						NodeId:    "",
 						OutputKey: "",
 					},
@@ -139,14 +160,91 @@ func TestEnable(t *testing.T) {
 	}
 
 	r := newRunner(nil, &f)
-	rsp, err := r.ExecNode(context.Background(), "a", func(result model.NodeStatus) {
+	rsp, err := r.ExecNode(context.Background(), "a", nil, func(result model.NodeStatus) {
+		//t.Logf("%+v", result)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "b", rsp["default"])
+	assert.Equal(t, "data=='a'", rsp["branch"])
+
+	f.Nodes["a"].Inputs[0].Literal = "d"
+	r = newRunner(nil, &f)
+	rsp, err = r.ExecNode(context.Background(), "a", nil, func(result model.NodeStatus) {
 		t.Logf("%+v", result)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("%+v", rsp)
+	assert.Equal(t, nil, rsp["default"])
+	assert.Equal(t, "", rsp["branch"])
+
+	f.Nodes["a"].Inputs[0].Literal = "c"
+
+	r = newRunner(nil, &f)
+	rsp, err = r.ExecNode(context.Background(), "a", nil, func(result model.NodeStatus) {
+		t.Logf("%+v", result)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "c", rsp["default"])
+	assert.Equal(t, "data=='c'", rsp["branch"])
+}
+
+func TestFor(t *testing.T) {
+	f := Flow{
+		Nodes: map[string]Node{
+			"a": {
+				Cmd: "_for",
+				Inputs: []NodeInput{
+					{
+						Key:       "data",
+						Type:      "literal",
+						Literal:   []string{"a", "b", "c"},
+						NodeId:    "",
+						OutputKey: "",
+					},
+				},
+				ForItem: ForItemNode{
+					NodeId:   "b",
+					InputKey: "default",
+				},
+			},
+			"b": {
+				Id:  "",
+				Cmd: "add_prefix",
+				Inputs: []NodeInput{
+					{
+						Key:       "prefix",
+						Type:      "literal",
+						Literal:   "hi: ",
+						NodeId:    "",
+						OutputKey: "",
+					},
+				},
+			},
+		},
+		OutputNodeId: "a",
+	}
+
+	r := newRunner(map[string]schema.CMDer{
+		"add_prefix": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+			return map[string]interface{}{"default": fmt.Sprintf("%v%v", params["prefix"], params["default"])}, nil
+		}),
+	}, &f)
+	rsp, err := r.ExecNode(context.Background(), "a", nil, func(result model.NodeStatus) {
+		//t.Logf("%+v", result)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, []interface{}{"hi: a", "hi: b", "hi: c"}, rsp["default"])
 }
 
 func TestFromModelFlow(t *testing.T) {

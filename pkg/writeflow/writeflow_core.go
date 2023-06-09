@@ -38,7 +38,7 @@ const (
 type NodeInput struct {
 	Key       string
 	Type      NodeInputType // anchor, literal
-	Literal   string        // 字面量
+	Literal   interface{}   // 字面量
 	NodeId    string        // anchor node id
 	OutputKey string
 }
@@ -47,6 +47,15 @@ type Node struct {
 	Id     string
 	Cmd    string
 	Inputs []NodeInput
+
+	// 只有 for 节点有这个值
+	ForItem ForItemNode
+}
+
+type ForItemNode struct {
+	NodeId    string
+	InputKey  string
+	OutputKey string // outputKey 可不填，默认等于 inputKey
 }
 
 type inputKeysKey struct{}
@@ -80,6 +89,9 @@ func (d Nodes) GetRootNodes() (nodes []Node) {
 			if input.Type == NodeInputAnchor {
 				delete(nds, input.NodeId)
 			}
+		}
+		if v.ForItem.NodeId != "" {
+			delete(nds, v.ForItem.NodeId)
 		}
 	}
 
@@ -146,6 +158,11 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 			Id:     node.Id,
 			Cmd:    cmd,
 			Inputs: inputs,
+			ForItem: ForItemNode{
+				NodeId:    node.Data.ForItem.NodeId,
+				InputKey:  node.Data.ForItem.InputKey,
+				OutputKey: node.Data.ForItem.OutputKey,
+			},
 		}
 	}
 	return &Flow{
@@ -189,7 +206,7 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 	runNodes := flow.Nodes.GetRootNodes()
 
 	for _, node := range runNodes {
-		_, err := fr.ExecNode(ctx, node.Id, func(result model.NodeStatus) {
+		_, err := fr.ExecNode(ctx, node.Id, nil, func(result model.NodeStatus) {
 			results <- &result
 		})
 		if err != nil {
@@ -251,17 +268,66 @@ func (e *ExecNodeError) Unwrap() error {
 
 var ErrNodeUnreachable = errors.New("node unreachable")
 
-func (f *runner) ExecNode(ctx context.Context, nodeId string, onNodeRun func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
+// DGA 可以转为一个表达式。
+// 例如：
+//
+// LangChain({
+//   openai: OpenAI({ key: "xx" }).default,
+//   prompt: InputStr({ default: "Hi!" }).default
+// })
+// 这个函数可以通过递归执行依赖的函数（节点）来得到结果。
+// 足够简单并且只会执行依赖的函数。
+//
+// 但要描述 If，和 For 语句就不如 脚本 方便。
+//
+// Switch:
+//
+// LangChain({
+//   openai: Switch({
+//     data: InputStr({default: 'openai'}).default,
+//     conditions: [
+//        { exp: "data==openai", value: OpenAI({ key: "xx" }).default },
+//        { exp: "data==local", value: LocalLLM({ path: "xx" }).default },
+//     ],
+//   }),
+//   prompt: InputStr({ default: "Hi!" }).default
+// })
+//
+// For:
+//
+// LangChain({
+//   openai: OpenAI({ key: "xx" }).default,
+//   prompts: For({
+//     data: GetList().default,
+//     item: AddPrefix({item: <item>, prefix: "Hi: "}).default,
+//   })
+// })
+
+type Inject map[string]interface{}
+
+func (i Inject) Append(key string, value interface{}) Inject {
+	x := map[string]interface{}{}
+	for k, v := range i {
+		x[k] = v
+	}
+	x[key] = value
+	return x
+}
+
+// Switch 和 For 不能使用 Cmd(params map[string]interface{}) map[string]interface{} 实现，而是需要内置。
+// Cmd 依赖的是已经处理好的值，而 Switch 和 For 需要依赖懒值（函数），只有当需要的时候才会执行。
+// 如果让 Cmd 处理懒值会导致 Cmd 的编写逻辑变得复杂，同时还需要处理函数执行异常，不方便用户编写。
+// 而逻辑分支相对固定，可以内置实现。
+
+func (f *runner) ExecNode(ctx context.Context, nodeId string, inject Inject, onNodeRun func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
 	start := time.Now()
 	defer func() {
 		if onNodeRun != nil {
 			if err != nil {
-				if err == ErrNodeUnreachable || err.Error() == ErrNodeUnreachable.Error() {
+				if errors.Is(err, ErrNodeUnreachable) || err.Error() == ErrNodeUnreachable.Error() {
 					onNodeRun(model.NodeStatus{
 						NodeId: nodeId,
 						Status: model.StatusUnreachable,
-						Error:  "",
-						Result: nil,
 						RunAt:  start,
 						EndAt:  time.Now(),
 					})
@@ -271,7 +337,6 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, onNodeRun func(res
 						NodeId: nodeId,
 						Status: model.StatusFailed,
 						Error:  err.Error(),
-						Result: nil,
 						RunAt:  start,
 						EndAt:  time.Now(),
 					})
@@ -280,7 +345,6 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, onNodeRun func(res
 				onNodeRun(model.NodeStatus{
 					NodeId: nodeId,
 					Status: model.StatusSuccess,
-					Error:  "",
 					Result: rsp,
 					RunAt:  start,
 					EndAt:  time.Now(),
@@ -295,10 +359,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, onNodeRun func(res
 
 	nodeDef := f.flowDef.Nodes[nodeId]
 
-	inputs := nodeDef.Inputs
-	//log.Infof("input %v: %+v", nodeId, inputs)
-
-	var calcInput = func(i NodeInput) (interface{}, error) {
+	var calcInput = func(i NodeInput, inject map[string]interface{}) (interface{}, error) {
 		var value interface{}
 		switch i.Type {
 		case NodeInputLiteral:
@@ -308,11 +369,12 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, onNodeRun func(res
 				// 如果节点 id 为空，则说明是非必填字段。
 				return nil, nil
 			}
+
 			v, ok := f.getRspCache(i.NodeId, i.OutputKey)
-			if ok {
+			if ok && inject == nil {
 				value = v
 			} else {
-				rsps, err := f.ExecNode(ctx, i.NodeId, onNodeRun)
+				rsps, err := f.ExecNode(ctx, i.NodeId, inject, onNodeRun)
 				if err != nil {
 					return nil, err
 				}
@@ -325,62 +387,145 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, onNodeRun func(res
 		return value, nil
 	}
 
-	// _enable 为 false 时，跳过执行。
-	for _, i := range inputs {
-		if i.Key == "_enable" {
-			r, err := calcInput(i)
+	inputs := nodeDef.Inputs
+	//log.Infof("input %v: %+v", nodeId, inputs)
+	// switch 和 for 内置实现，不使用 cmd 逻辑。
+	switch nodeDef.Cmd {
+	case "_switch":
+		// get data
+		var data interface{}
+		for _, input := range inputs {
+			if input.Key == "data" {
+				data, err = calcInput(input, inject)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		for _, input := range inputs {
+			if input.Key == "data" {
+				continue
+			}
+
+			condition := input.Key
+
+			v, err := LookInterface(data, condition)
+			if err != nil {
+				return nil, NewExecNodeError(fmt.Errorf("exec condition %s error: %w", condition, err), nodeId)
+			}
+
+			if cast.ToBool(v) {
+				r, err := calcInput(input, inject)
+				if err != nil {
+					return nil, err
+				}
+
+				return map[string]interface{}{"default": r, "branch": input.Key}, nil
+			}
+		}
+
+		rsp = map[string]interface{}{"default": nil, "branch": ""}
+	case "_for":
+		// get data
+		var data interface{}
+		for _, input := range inputs {
+			if input.Key == "data" {
+				data, err = calcInput(input, inject)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		outputKey := nodeDef.ForItem.OutputKey
+		if outputKey == "" {
+			outputKey = nodeDef.ForItem.InputKey
+		}
+
+		if nodeDef.ForItem.NodeId == "" {
+			return nil, NewExecNodeError(errors.New("the iterated item cannot be empty"), nodeId)
+		}
+
+		var rsps []interface{}
+		var forError error
+		err := ForInterface(data, func(i interface{}) {
+			if forError != nil {
+				return
+			}
+
+			r, err := calcInput(NodeInput{
+				Key:       "",
+				Type:      NodeInputAnchor,
+				Literal:   nil,
+				NodeId:    nodeDef.ForItem.NodeId,
+				OutputKey: outputKey,
+			}, inject.Append(nodeDef.ForItem.InputKey, i))
+			if err != nil {
+				forError = err
+			} else {
+				rsps = append(rsps, r)
+			}
+		})
+		if err != nil {
+			return nil, NewExecNodeError(fmt.Errorf("for %T error: %w", data, err), nodeId)
+		}
+
+		if forError != nil {
+			return nil, NewExecNodeError(fmt.Errorf("for %T error: %w", data, forError), nodeId)
+		}
+
+		rsp = map[string]interface{}{"default": rsps}
+	default:
+		dependValue := map[string]interface{}{}
+		var inputKeys []string
+		for _, i := range inputs {
+			inputKeys = append(inputKeys, i.Key)
+
+			r, err := calcInput(i, inject)
 			if err != nil {
 				return nil, err
 			}
-			if cast.ToBool(r) == false {
-				return nil, ErrNodeUnreachable
+
+			dependValue[i.Key] = r
+		}
+
+		cmdName := nodeDef.Cmd
+		if cmdName == "" {
+			return nil, NewExecNodeError(fmt.Errorf("cmd is not defined"), nodeDef.Id)
+		}
+		c, ok := f.cmd[cmdName]
+		if !ok {
+			if cmdName == model.NothingCmd {
+				// 如果不需要执行任何命令，则直接返回 input
+				return dependValue, nil
 			}
+			return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmdName), nodeDef.Id)
 		}
-	}
 
-	dependValue := map[string]interface{}{}
-	var inputKeys []string
-	for _, i := range inputs {
-		if i.Key == "_enable" {
-			continue
+		for k, v := range inject {
+			dependValue[k] = v
 		}
-		inputKeys = append(inputKeys, i.Key)
 
-		r, err := calcInput(i)
+		// 只有自定义 cmd 才需要报告 running 状态，特殊的 _for, _switch 不需要。
+		if onNodeRun != nil {
+			onNodeRun(model.NodeStatus{
+				NodeId: nodeId,
+				Status: model.StatusRunning,
+				Error:  "",
+				Result: nil,
+				RunAt:  start,
+				EndAt:  time.Time{},
+			})
+		}
+
+		rsp, err = c.Exec(WithInputKeys(ctx, inputKeys), dependValue)
 		if err != nil {
-			return nil, err
+			return nil, NewExecNodeError(err, nodeDef.Id)
 		}
-
-		dependValue[i.Key] = r
-	}
-
-	if onNodeRun != nil {
-		onNodeRun(model.NodeStatus{
-			NodeId: nodeId,
-			Status: model.StatusRunning,
-			Error:  "",
-			Result: nil,
-			RunAt:  start,
-			EndAt:  time.Time{},
-		})
 	}
 
 	//log.Printf("dependValue: %+v", dependValue)
-	cmd := nodeDef.Cmd
-	if cmd == "" {
-		return nil, NewExecNodeError(fmt.Errorf("cmd is not defined"), nodeDef.Id)
-	}
-	c, ok := f.cmd[cmd]
-	if !ok {
-		if cmd == model.NothingCmd {
-			// 如果不需要执行任何命令，则直接返回 input
-			return dependValue, nil
-		}
-		return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmd), nodeDef.Id)
-	}
-	rsp, err = c.Exec(WithInputKeys(ctx, inputKeys), dependValue)
-	if err != nil {
-		return nil, NewExecNodeError(err, nodeDef.Id)
-	}
+
 	return rsp, err
 }

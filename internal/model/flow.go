@@ -130,15 +130,22 @@ type NodeInputParam struct {
 
 type NodeData = ComponentData
 
+type ForItemNode struct {
+	NodeId    string `json:"node_id"`
+	InputKey  string `json:"input_key"`
+	OutputKey string `json:"output_key"` // outputKey 可不填，默认等于 inputKey
+}
+
 type ComponentData struct {
 	Name          Locales            `json:"name"`
 	Icon          string             `json:"icon"`
 	Description   Locales            `json:"description"`
 	Source        ComponentSource    `json:"source"`
-	DynamicInput  bool               `json:"dynamic_input"`            // 是否可以添加动态输入
-	DynamicOutput bool               `json:"dynamic_output"`           // 输出是否和动态输入一样
-	InputAnchors  []NodeInputAnchor  `json:"input_anchors,omitempty"`  // 输入锚点定义
-	InputParams   []NodeInputParam   `json:"input_params,omitempty"`   // 字面参数定义
+	DynamicInput  bool               `json:"dynamic_input"`           // 是否可以添加动态输入
+	DynamicOutput bool               `json:"dynamic_output"`          // 输出是否和动态输入一样
+	InputAnchors  []NodeInputAnchor  `json:"input_anchors,omitempty"` // 输入锚点定义
+	InputParams   []NodeInputParam   `json:"input_params,omitempty"`  // 字面参数定义
+	ForItem       ForItemNode        `json:"for_item,omitempty"`
 	OutputAnchors []NodeOutputAnchor `json:"output_anchors,omitempty"` // 输出锚点定义
 	Inputs        map[string]string  `json:"inputs"`                   // key -> response (node_id.output_key)
 }
