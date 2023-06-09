@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
-	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/pkg/modules"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"github.com/zbysir/writeflow/pkg/writeflow"
@@ -212,7 +211,6 @@ func (b *Builtin) Components() []model.Component {
 						Type: "any",
 					},
 				},
-				// switch 的 output 需要前端做特殊处理，output keys 需要等于 input keys
 			},
 		},
 		{
@@ -251,6 +249,13 @@ func (b *Builtin) Components() []model.Component {
 							"zh-CN": "Default",
 						},
 						Key:  "default",
+						Type: "any",
+					},
+					{
+						Name: map[string]string{
+							"zh-CN": "Item",
+						},
+						Key:  "item",
 						Type: "any",
 					},
 				},
@@ -478,58 +483,6 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 				return nil, err
 			}
 			return map[string]interface{}{"default": l}, nil
-		}),
-		// 多个分支，只会有一个 key 为 true，如果所有的 key 都是 false，则 default 为 true
-		"switch": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-			d := params["data"]
-			if d == nil {
-				return map[string]interface{}{"default": true}, nil
-			}
-
-			rsp = map[string]interface{}{}
-
-			// 根据 input 定义顺序执行
-			keys := writeflow.GetInputKeys(ctx)
-			if len(keys) == 0 {
-				for k := range params {
-					if k == "data" {
-						continue
-					}
-					keys = append(keys, k)
-				}
-			}
-
-			// 除了 data 都是条件
-			for _, k := range keys {
-				if k == "data" {
-					continue
-				}
-
-				v := params[k]
-				// data.a
-				condition, ok := v.(string)
-				if !ok {
-					log.Errorf("switch params error: %+v is not string", params)
-					continue
-				}
-
-				l, err := writeflow.LookInterface(d, condition)
-				if err != nil {
-					return nil, err
-				}
-
-				if l != nil && l != false {
-					rsp[k] = true
-					break
-				}
-			}
-
-			if len(rsp) == 0 {
-				// 如果没有进入任何分支，则会进入 default 分支
-				rsp["default"] = true
-			}
-
-			return rsp, nil
 		}),
 		"call_http": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			p := params["url"]

@@ -47,9 +47,6 @@ type Node struct {
 	Id     string
 	Cmd    string
 	Inputs []NodeInput
-
-	// 只有 for 节点有这个值
-	ForItem ForItemNode
 }
 
 type ForItemNode struct {
@@ -89,9 +86,6 @@ func (d Nodes) GetRootNodes() (nodes []Node) {
 			if input.Type == NodeInputAnchor {
 				delete(nds, input.NodeId)
 			}
-		}
-		if v.ForItem.NodeId != "" {
-			delete(nds, v.ForItem.NodeId)
 		}
 	}
 
@@ -158,11 +152,6 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 			Id:     node.Id,
 			Cmd:    cmd,
 			Inputs: inputs,
-			ForItem: ForItemNode{
-				NodeId:    node.Data.ForItem.NodeId,
-				InputKey:  node.Data.ForItem.InputKey,
-				OutputKey: node.Data.ForItem.OutputKey,
-			},
 		}
 	}
 	return &Flow{
@@ -206,7 +195,7 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 	runNodes := flow.Nodes.GetRootNodes()
 
 	for _, node := range runNodes {
-		_, err := fr.ExecNode(ctx, node.Id, nil, func(result model.NodeStatus) {
+		_, err := fr.ExecNode(ctx, node.Id, false, func(result model.NodeStatus) {
 			results <- &result
 		})
 		if err != nil {
@@ -223,6 +212,7 @@ type runner struct {
 	cmd         map[string]schema.CMDer // id -> cmder
 	flowDef     *Flow
 	cmdRspCache map[string]map[string]interface{} // nodeId->key->value
+	inject      map[string]map[string]interface{} // nodeId->key->value
 	l           sync.RWMutex
 }
 
@@ -233,8 +223,18 @@ func (r *runner) getRspCache(nodeId string, key string) (v interface{}, exist bo
 	if r.cmdRspCache[nodeId] == nil {
 		return nil, false
 	}
-	v = r.cmdRspCache[nodeId][key]
-	exist = true
+	v, exist = r.cmdRspCache[nodeId][key]
+	return
+}
+
+func (r *runner) getInject(nodeId string, key string) (v interface{}, exist bool) {
+	r.l.RLock()
+	defer r.l.RUnlock()
+
+	if r.inject[nodeId] == nil {
+		return nil, false
+	}
+	v, exist = r.inject[nodeId][key]
 	return
 }
 
@@ -246,8 +246,37 @@ func (r *runner) setRspCache(nodeId string, rsp map[string]interface{}) {
 	return
 }
 
+func (r *runner) setRspItemCache(nodeId string, k string, v interface{}) {
+	r.l.Lock()
+	defer r.l.Unlock()
+
+	if r.cmdRspCache[nodeId] == nil {
+		r.cmdRspCache[nodeId] = map[string]interface{}{}
+	}
+
+	r.cmdRspCache[nodeId][k] = v
+	return
+}
+
+func (r *runner) setInject(nodeId string, k string, v interface{}) {
+	r.l.Lock()
+	defer r.l.Unlock()
+
+	if r.inject[nodeId] == nil {
+		r.inject[nodeId] = map[string]interface{}{}
+	}
+
+	r.inject[nodeId][k] = v
+	return
+}
+
 func newRunner(cmd map[string]schema.CMDer, flowDef *Flow) *runner {
-	return &runner{cmd: cmd, flowDef: flowDef, cmdRspCache: map[string]map[string]interface{}{}}
+	return &runner{
+		cmd:         cmd,
+		flowDef:     flowDef,
+		cmdRspCache: map[string]map[string]interface{}{},
+		inject:      map[string]map[string]interface{}{},
+	}
 }
 
 type ExecNodeError struct {
@@ -303,23 +332,12 @@ var ErrNodeUnreachable = errors.New("node unreachable")
 //   })
 // })
 
-type Inject map[string]interface{}
-
-func (i Inject) Append(key string, value interface{}) Inject {
-	x := map[string]interface{}{}
-	for k, v := range i {
-		x[k] = v
-	}
-	x[key] = value
-	return x
-}
-
 // Switch 和 For 不能使用 Cmd(params map[string]interface{}) map[string]interface{} 实现，而是需要内置。
 // Cmd 依赖的是已经处理好的值，而 Switch 和 For 需要依赖懒值（函数），只有当需要的时候才会执行。
 // 如果让 Cmd 处理懒值会导致 Cmd 的编写逻辑变得复杂，同时还需要处理函数执行异常，不方便用户编写。
 // 而逻辑分支相对固定，可以内置实现。
 
-func (f *runner) ExecNode(ctx context.Context, nodeId string, inject Inject, onNodeRun func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
+func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNodeRun func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
 	start := time.Now()
 	defer func() {
 		if onNodeRun != nil {
@@ -359,7 +377,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, inject Inject, onN
 
 	nodeDef := f.flowDef.Nodes[nodeId]
 
-	var calcInput = func(i NodeInput, inject map[string]interface{}) (interface{}, error) {
+	var calcInput = func(i NodeInput, nocache bool) (interface{}, error) {
 		var value interface{}
 		switch i.Type {
 		case NodeInputLiteral:
@@ -370,11 +388,16 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, inject Inject, onN
 				return nil, nil
 			}
 
-			v, ok := f.getRspCache(i.NodeId, i.OutputKey)
-			if ok && inject == nil {
+			v, ok := f.getInject(i.NodeId, i.OutputKey)
+			if ok {
+				return v, nil
+			}
+
+			v, ok = f.getRspCache(i.NodeId, i.OutputKey)
+			if ok && !nocache {
 				value = v
 			} else {
-				rsps, err := f.ExecNode(ctx, i.NodeId, inject, onNodeRun)
+				rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeRun)
 				if err != nil {
 					return nil, err
 				}
@@ -396,7 +419,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, inject Inject, onN
 		var data interface{}
 		for _, input := range inputs {
 			if input.Key == "data" {
-				data, err = calcInput(input, inject)
+				data, err = calcInput(input, nocache)
 				if err != nil {
 					return nil, err
 				}
@@ -416,7 +439,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, inject Inject, onN
 			}
 
 			if cast.ToBool(v) {
-				r, err := calcInput(input, inject)
+				r, err := calcInput(input, nocache)
 				if err != nil {
 					return nil, err
 				}
@@ -427,24 +450,20 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, inject Inject, onN
 
 		rsp = map[string]interface{}{"default": nil, "branch": ""}
 	case "_for":
+		// for 的执行逻辑：
+		//  找到 input 依赖 forOutput.item 的节点，然后执行它，会递归执行到 forInput 节点，然后 forInput 会返回迭代值。
 		// get data
 		var data interface{}
+		var itemInput NodeInput
 		for _, input := range inputs {
 			if input.Key == "data" {
-				data, err = calcInput(input, inject)
+				data, err = calcInput(input, nocache)
 				if err != nil {
 					return nil, err
 				}
+			} else if input.Key == "item" {
+				itemInput = input
 			}
-		}
-
-		outputKey := nodeDef.ForItem.OutputKey
-		if outputKey == "" {
-			outputKey = nodeDef.ForItem.InputKey
-		}
-
-		if nodeDef.ForItem.NodeId == "" {
-			return nil, NewExecNodeError(errors.New("the iterated item cannot be empty"), nodeId)
 		}
 
 		var rsps []interface{}
@@ -453,20 +472,15 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, inject Inject, onN
 			if forError != nil {
 				return
 			}
-
-			r, err := calcInput(NodeInput{
-				Key:       "",
-				Type:      NodeInputAnchor,
-				Literal:   nil,
-				NodeId:    nodeDef.ForItem.NodeId,
-				OutputKey: outputKey,
-			}, inject.Append(nodeDef.ForItem.InputKey, i))
+			f.setInject(nodeId, "item", i)
+			r, err := calcInput(itemInput, true)
 			if err != nil {
 				forError = err
 			} else {
 				rsps = append(rsps, r)
 			}
 		})
+
 		if err != nil {
 			return nil, NewExecNodeError(fmt.Errorf("for %T error: %w", data, err), nodeId)
 		}
@@ -482,7 +496,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, inject Inject, onN
 		for _, i := range inputs {
 			inputKeys = append(inputKeys, i.Key)
 
-			r, err := calcInput(i, inject)
+			r, err := calcInput(i, nocache)
 			if err != nil {
 				return nil, err
 			}
@@ -501,10 +515,6 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, inject Inject, onN
 				return dependValue, nil
 			}
 			return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmdName), nodeDef.Id)
-		}
-
-		for k, v := range inject {
-			dependValue[k] = v
 		}
 
 		// 只有自定义 cmd 才需要报告 running 状态，特殊的 _for, _switch 不需要。

@@ -160,7 +160,7 @@ func TestSwitch(t *testing.T) {
 	}
 
 	r := newRunner(nil, &f)
-	rsp, err := r.ExecNode(context.Background(), "a", nil, func(result model.NodeStatus) {
+	rsp, err := r.ExecNode(context.Background(), "a", false, func(result model.NodeStatus) {
 		//t.Logf("%+v", result)
 	})
 	if err != nil {
@@ -172,7 +172,7 @@ func TestSwitch(t *testing.T) {
 
 	f.Nodes["a"].Inputs[0].Literal = "d"
 	r = newRunner(nil, &f)
-	rsp, err = r.ExecNode(context.Background(), "a", nil, func(result model.NodeStatus) {
+	rsp, err = r.ExecNode(context.Background(), "a", false, func(result model.NodeStatus) {
 		t.Logf("%+v", result)
 	})
 	if err != nil {
@@ -185,7 +185,7 @@ func TestSwitch(t *testing.T) {
 	f.Nodes["a"].Inputs[0].Literal = "c"
 
 	r = newRunner(nil, &f)
-	rsp, err = r.ExecNode(context.Background(), "a", nil, func(result model.NodeStatus) {
+	rsp, err = r.ExecNode(context.Background(), "a", false, func(result model.NodeStatus) {
 		t.Logf("%+v", result)
 	})
 	if err != nil {
@@ -200,6 +200,7 @@ func TestFor(t *testing.T) {
 	f := Flow{
 		Nodes: map[string]Node{
 			"a": {
+				Id:  "a",
 				Cmd: "_for",
 				Inputs: []NodeInput{
 					{
@@ -209,14 +210,17 @@ func TestFor(t *testing.T) {
 						NodeId:    "",
 						OutputKey: "",
 					},
-				},
-				ForItem: ForItemNode{
-					NodeId:   "b",
-					InputKey: "default",
+					{
+						Key:       "item",
+						Type:      "anchor",
+						Literal:   "",
+						NodeId:    "b",
+						OutputKey: "default",
+					},
 				},
 			},
 			"b": {
-				Id:  "",
+				Id:  "b",
 				Cmd: "add_prefix",
 				Inputs: []NodeInput{
 					{
@@ -225,6 +229,13 @@ func TestFor(t *testing.T) {
 						Literal:   "hi: ",
 						NodeId:    "",
 						OutputKey: "",
+					},
+					{
+						Key:       "default",
+						Type:      "anchor",
+						Literal:   "",
+						NodeId:    "a",
+						OutputKey: "item",
 					},
 				},
 			},
@@ -237,7 +248,7 @@ func TestFor(t *testing.T) {
 			return map[string]interface{}{"default": fmt.Sprintf("%v%v", params["prefix"], params["default"])}, nil
 		}),
 	}, &f)
-	rsp, err := r.ExecNode(context.Background(), "a", nil, func(result model.NodeStatus) {
+	rsp, err := r.ExecNode(context.Background(), "a", false, func(result model.NodeStatus) {
 		//t.Logf("%+v", result)
 	})
 	if err != nil {
