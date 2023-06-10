@@ -313,6 +313,9 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 			Category: "output",
 			Data: model.ComponentData{
 				Name: map[string]string{
+					"zh-CN": "Output",
+				},
+				Description: map[string]string{
 					"zh-CN": "输出",
 				},
 				Source: model.ComponentSource{
@@ -337,6 +340,9 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 			Category: "data",
 			Data: model.ComponentData{
 				Name: map[string]string{
+					"zh-CN": "Select",
+				},
+				Description: map[string]string{
 					"zh-CN": "通过路径选择数据",
 				},
 				Source: model.ComponentSource{
@@ -361,6 +367,43 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 						Key:      "path",
 						Type:     "string",
 						Optional: true,
+					},
+				},
+				OutputAnchors: []model.NodeOutputAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Default",
+						},
+						Key:  "default",
+						Type: "any",
+					},
+				},
+			},
+		},
+		{
+			Id:       0,
+			Type:     "list",
+			Category: "data",
+			Data: model.ComponentData{
+				Name: map[string]string{
+					"zh-CN": "List",
+				},
+				Description: map[string]string{
+					"zh-CN": "多个数据合成数组",
+				},
+				Source: model.ComponentSource{
+					CmdType:    model.BuiltInCmd,
+					BuiltinCmd: "list",
+				},
+				InputAnchors: []model.NodeInputParam{
+					{
+						Name: map[string]string{
+							"zh-CN": "数据",
+						},
+						Key:      "data",
+						Type:     "any",
+						Optional: true,
+						List:     true,
 					},
 				},
 				OutputAnchors: []model.NodeOutputAnchor{
@@ -485,6 +528,14 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 				return nil, err
 			}
 			return map[string]interface{}{"default": l}, nil
+		}),
+		"list": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+			//log.Infof("select params: %+v", params)
+			p := params["data"]
+			if p == nil {
+				return map[string]interface{}{}, nil
+			}
+			return map[string]interface{}{"default": p}, nil
 		}),
 		"call_http": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			p := params["url"]
