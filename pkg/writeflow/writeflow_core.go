@@ -36,17 +36,24 @@ const (
 )
 
 type NodeInput struct {
-	Key       string
-	Type      NodeInputType // anchor, literal
-	Literal   interface{}   // 字面量
-	NodeId    string        // anchor node id
-	OutputKey string
+	Key     string
+	Type    NodeInputType // anchor, literal
+	Literal interface{}   // 字面量
+	List    bool
+
+	Anchors []model.NodeAnchorTarget
+}
+
+type NodeAnchorTarget struct {
+	NodeId    string `json:"node_id"`    // 关联的节点 id
+	OutputKey string `json:"output_key"` // 关联的节点输出 key
 }
 
 type Node struct {
-	Id     string
-	Cmd    string
-	Inputs []NodeInput
+	Id       string
+	Cmd      string
+	BuiltCmd schema.CMDer
+	Inputs   []NodeInput
 }
 
 type ForItemNode struct {
@@ -84,7 +91,9 @@ func (d Nodes) GetRootNodes() (nodes []Node) {
 	for _, v := range d {
 		for _, input := range v.Inputs {
 			if input.Type == NodeInputAnchor {
-				delete(nds, input.NodeId)
+				for _, v := range input.Anchors {
+					delete(nds, v.NodeId)
+				}
 			}
 		}
 	}
@@ -117,41 +126,74 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 	for _, node := range m.Graph.Nodes {
 		var inputs []NodeInput
 		for _, input := range node.Data.InputParams {
-			inputs = append(inputs, NodeInput{
-				Key:       input.Key,
-				Type:      "literal",
-				Literal:   node.Data.GetInputValue(input.Key),
-				NodeId:    "",
-				OutputKey: "",
-			})
+			switch input.InputType {
+
+			case model.NodeInputTypeAnchor:
+				anchors, list := node.Data.GetInputAnchorValue(input.Key)
+				if len(anchors) == 0 && !input.Optional {
+					return nil, fmt.Errorf("input '%v' for node '%v' is not defined", input.Key, node.Id)
+				}
+
+				inputs = append(inputs, NodeInput{
+					Key:     input.Key,
+					Type:    "anchor",
+					Literal: "",
+					Anchors: anchors,
+					List:    list,
+				})
+			default:
+				inputs = append(inputs, NodeInput{
+					Key:     input.Key,
+					Type:    NodeInputLiteral,
+					Literal: node.Data.GetInputValue(input.Key),
+				})
+			}
 		}
 
+		// 废弃后可以删掉
 		for _, input := range node.Data.InputAnchors {
-			nodeId, outputKey := node.Data.GetInputAnchorValue(input.Key)
-			if nodeId == "" && !input.Optional {
+			anchors, list := node.Data.GetInputAnchorValue(input.Key)
+			if len(anchors) == 0 && !input.Optional {
 				return nil, fmt.Errorf("input '%v' for node '%v' is not defined", input.Key, node.Id)
 			}
 
 			inputs = append(inputs, NodeInput{
-				Key:       input.Key,
-				Type:      "anchor",
-				Literal:   "",
-				NodeId:    nodeId,
-				OutputKey: outputKey,
+				Key:     input.Key,
+				Type:    "anchor",
+				Literal: "",
+				Anchors: anchors,
+				List:    list,
 			})
 		}
 
-		cmd := node.Type
+		cmdName := node.Type
+		var cmder schema.CMDer
+		switch node.Data.Source.CmdType {
+		case model.NothingCmd:
+			cmdName = model.NothingCmd
+		case model.GoScriptCmd:
+			key := node.Data.Source.GoScript.InputKey
+			if key == "" {
+				key = "script"
+			}
+			script := node.Data.GetInputValue(key)
+			var err error
+			cmder, err = cmd.NewGoScript(nil, "", script)
+			if err != nil {
+				return nil, fmt.Errorf("parse node '%v' script '%v' error: %v", node.Id, script, err)
+			}
+		}
 		if node.Data.Source.CmdType == model.NothingCmd {
-			cmd = model.NothingCmd
+			cmdName = model.NothingCmd
 		} else if node.Data.Source.BuiltinCmd != "" {
-			cmd = node.Data.Source.BuiltinCmd
+			cmdName = node.Data.Source.BuiltinCmd
 		}
 
 		nodes[node.Id] = Node{
-			Id:     node.Id,
-			Cmd:    cmd,
-			Inputs: inputs,
+			Id:       node.Id,
+			Cmd:      cmdName,
+			BuiltCmd: cmder,
+			Inputs:   inputs,
 		}
 	}
 	return &Flow{
@@ -378,36 +420,44 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 	nodeDef := f.flowDef.Nodes[nodeId]
 
 	var calcInput = func(i NodeInput, nocache bool) (interface{}, error) {
-		var value interface{}
 		switch i.Type {
 		case NodeInputLiteral:
-			value = i.Literal
+			return i.Literal, nil
 		case NodeInputAnchor:
-			if i.NodeId == "" {
+			if len(i.Anchors) == 0 {
 				// 如果节点 id 为空，则说明是非必填字段。
 				return nil, nil
 			}
+			var values []interface{}
 
-			v, ok := f.getInject(i.NodeId, i.OutputKey)
-			if ok {
-				return v, nil
+			for _, i := range i.Anchors {
+				v, ok := f.getInject(i.NodeId, i.OutputKey)
+				if ok {
+					return v, nil
+				}
+
+				v, ok = f.getRspCache(i.NodeId, i.OutputKey)
+				if ok && !nocache {
+					values = append(values, v)
+				} else {
+					rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeRun)
+					if err != nil {
+						return nil, err
+					}
+					values = append(values, rsps[i.OutputKey])
+
+					f.setRspCache(i.NodeId, rsps)
+				}
 			}
 
-			v, ok = f.getRspCache(i.NodeId, i.OutputKey)
-			if ok && !nocache {
-				value = v
+			if i.List {
+				return values, nil
 			} else {
-				rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeRun)
-				if err != nil {
-					return nil, err
-				}
-				value = rsps[i.OutputKey]
-
-				f.setRspCache(i.NodeId, rsps)
+				return values[0], nil
 			}
 		}
 
-		return value, nil
+		return nil, nil
 	}
 
 	inputs := nodeDef.Inputs
@@ -438,7 +488,8 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 				return nil, NewExecNodeError(fmt.Errorf("exec condition %s error: %w", condition, err), nodeId)
 			}
 
-			if cast.ToBool(v) {
+			// ToBool can't convert int64 to bool
+			if cast.ToBool(cast.ToString(v)) {
 				r, err := calcInput(input, nocache)
 				if err != nil {
 					return nil, err
@@ -500,21 +551,32 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			if err != nil {
 				return nil, err
 			}
-
-			dependValue[i.Key] = r
+			if i.List {
+				if _, ok := dependValue[i.Key]; ok {
+					dependValue[i.Key] = append(dependValue[i.Key].([]interface{}), r)
+				} else {
+					dependValue[i.Key] = []interface{}{r}
+				}
+			} else {
+				dependValue[i.Key] = r
+			}
 		}
 
 		cmdName := nodeDef.Cmd
 		if cmdName == "" {
 			return nil, NewExecNodeError(fmt.Errorf("cmd is not defined"), nodeDef.Id)
 		}
-		c, ok := f.cmd[cmdName]
-		if !ok {
-			if cmdName == model.NothingCmd {
-				// 如果不需要执行任何命令，则直接返回 input
-				return dependValue, nil
+		c := nodeDef.BuiltCmd
+		if c == nil {
+			var ok bool
+			c, ok = f.cmd[cmdName]
+			if !ok {
+				if cmdName == model.NothingCmd {
+					// 如果不需要执行任何命令，则直接返回 input
+					return dependValue, nil
+				}
+				return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmdName), nodeDef.Id)
 			}
-			return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmdName), nodeDef.Id)
 		}
 
 		// 只有自定义 cmd 才需要报告 running 状态，特殊的 _for, _switch 不需要。

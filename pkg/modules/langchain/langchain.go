@@ -89,7 +89,7 @@ func (l *LangChain) Components() []model.Component {
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "langchain_call",
 				},
-				InputAnchors: []model.NodeInputAnchor{
+				InputAnchors: []model.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "LLM",

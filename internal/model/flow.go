@@ -99,17 +99,6 @@ type ComponentSource struct {
 	GoScript   ComponentGoScript  `json:"go_script,omitempty"`
 }
 
-type NodeInputAnchor struct {
-	Name            map[string]string `json:"name"`
-	Key             string            `json:"key"`
-	Type            string            `json:"type"`           // 数据模型，如 string / int / any
-	List            bool              `json:"list,omitempty"` // 是否是数组
-	Optional        bool              `json:"optional,omitempty"`
-	Dynamic         bool              `json:"dynamic,omitempty"` // 是否是动态输入，是动态输入才能删除。
-	TargetNodeId    string            `json:"target_node_id"`    // 关联的节点 id
-	TargetOutputKey string            `json:"target_output_key"` // 关联的节点输出 key
-}
-
 type NodeOutputAnchor struct {
 	Name    map[string]string `json:"name"`
 	Key     string            `json:"key"`
@@ -118,14 +107,30 @@ type NodeOutputAnchor struct {
 	Dynamic bool              `json:"dynamic,omitempty"` // 是否是动态输入，是动态输入才能删除。
 }
 
+type NodeInputType = string
+
+const (
+	NodeInputTypeAnchor  NodeInputType = "anchor"
+	NodeInputTypeLiteral NodeInputType = "literal"
+)
+
 type NodeInputParam struct {
-	Name        map[string]string `json:"name"`
-	Key         string            `json:"key"`
-	Type        string            `json:"type"`         // 数据模型，如 string / int / any
-	DisplayType string            `json:"display_type"` // 显示类型，如 code / text / textarea / select / checkbox / radio
-	Optional    bool              `json:"optional,omitempty"`
-	Dynamic     bool              `json:"dynamic,omitempty"` // 是否是动态输入，是动态输入才能删除。
-	Value       string            `json:"value"`             // 输入的值
+	Name        map[string]string  `json:"name"`
+	Key         string             `json:"key"`
+	InputType   NodeInputType      `json:"input_type"`
+	Type        string             `json:"type"`               // 数据模型，如 string / int / json / any
+	DisplayType string             `json:"display_type"`       // 显示类型，如 code / text / textarea / select / checkbox / radio
+	Options     []string           `json:"options"`            // 如果是 select / checkbox / radio，需要提供 options
+	Optional    bool               `json:"optional,omitempty"` // 是否是可选的
+	Dynamic     bool               `json:"dynamic,omitempty"`  // 是否是动态输入，是动态输入才能删除。
+	Value       string             `json:"value"`              // 输入的字面量
+	List        bool               `json:"list"`               // 支持链接多个输入
+	Anchors     []NodeAnchorTarget `json:"anchors"`
+}
+
+type NodeAnchorTarget struct {
+	NodeId    string `json:"node_id"`    // 关联的节点 id
+	OutputKey string `json:"output_key"` // 关联的节点输出 key
 }
 
 type NodeData = ComponentData
@@ -137,17 +142,20 @@ type ForItemNode struct {
 }
 
 type ComponentData struct {
-	Name          Locales            `json:"name"`
-	Icon          string             `json:"icon"`
-	Description   Locales            `json:"description"`
-	Source        ComponentSource    `json:"source"`
-	DynamicInput  bool               `json:"dynamic_input"`           // 是否可以添加动态输入
-	DynamicOutput bool               `json:"dynamic_output"`          // 输出是否和动态输入一样
-	InputAnchors  []NodeInputAnchor  `json:"input_anchors,omitempty"` // 输入锚点定义
+	Name          Locales         `json:"name"`
+	Icon          string          `json:"icon"`
+	Description   Locales         `json:"description"`
+	Source        ComponentSource `json:"source"`
+	DynamicInput  bool            `json:"dynamic_input"`  // 是否可以添加动态输入
+	DynamicOutput bool            `json:"dynamic_output"` // 输出是否和动态输入一样
+
+	// InputAnchors 将要废弃
+	InputAnchors  []NodeInputParam   `json:"input_anchors,omitempty"` // 输入锚点定义
 	InputParams   []NodeInputParam   `json:"input_params,omitempty"`  // 字面参数定义
 	ForItem       ForItemNode        `json:"for_item,omitempty"`
 	OutputAnchors []NodeOutputAnchor `json:"output_anchors,omitempty"` // 输出锚点定义
-	Inputs        map[string]string  `json:"inputs"`                   // key -> response (node_id.output_key)
+	// Inputs 将要废弃
+	Inputs map[string]string `json:"inputs"` // key -> response (node_id.output_key)
 }
 
 func (d *ComponentData) GetInputValue(key string) string {
@@ -163,11 +171,18 @@ func (d *ComponentData) GetInputValue(key string) string {
 	return ""
 }
 
-func (d *ComponentData) GetInputAnchorValue(key string) (nodeId string, outputKey string) {
+func (d *ComponentData) GetInputAnchorValue(key string) ([]NodeAnchorTarget, bool) {
+	for _, v := range d.InputParams {
+		if v.Key == key {
+			return v.Anchors, v.List
+		}
+	}
+
+	// InputAnchors 废弃后删除
 	for _, v := range d.InputAnchors {
 		if v.Key == key {
-			if v.TargetNodeId != "" {
-				return v.TargetNodeId, v.TargetOutputKey
+			if len(v.Anchors) != 0 {
+				return v.Anchors, v.List
 			}
 
 			ss := strings.Split(d.Inputs[key], ".")
@@ -178,9 +193,14 @@ func (d *ComponentData) GetInputAnchorValue(key string) (nodeId string, outputKe
 				outputKey = ss[1]
 			}
 
-			return nodeId, outputKey
+			return []NodeAnchorTarget{
+				{
+					NodeId:    nodeId,
+					OutputKey: outputKey,
+				},
+			}, false
 		}
 	}
 
-	return "", ""
+	return nil, false
 }

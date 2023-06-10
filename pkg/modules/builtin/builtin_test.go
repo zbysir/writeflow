@@ -34,13 +34,15 @@ func TestTemplateText(t *testing.T) {
 
 func TestCallHttp(t *testing.T) {
 	r, err := New().Cmd()["call_http"].Exec(context.Background(), map[string]interface{}{
-		"url":    "https://writeflow.bysir.top/api/flow",
-		"body":   "",
-		"method": "GET",
+		"url":    "http://localhost:18002/rpc",
+		"body":   "{     \"service\": \"lb.content.datadriver\",     \"endpoint\": \"QueryService.GetArticles\",     \"request\": {         \"conditions\":  [             {                 \"original_type\": 1,                 \"counter_ids\":[\"ST/US/TSLA\"],                 \"statuses\": [2],                 \"kinds\": [1]             }                      ],         \"started_at\":1686227717282478,         \"limit\": 10,         \"with_source\": true     } }",
+		"method": "POST",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	t.Logf("%+v", r["default"])
 
 	assert.NotEqual(t, nil, r["default"])
 }

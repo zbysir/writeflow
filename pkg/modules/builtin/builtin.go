@@ -157,7 +157,7 @@ func (b *Builtin) Components() []model.Component {
 						Optional: true,
 					},
 				},
-				InputAnchors: []model.NodeInputAnchor{
+				InputAnchors: []model.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "Body",
@@ -195,7 +195,7 @@ func (b *Builtin) Components() []model.Component {
 				},
 				// DynamicInput for conditions
 				DynamicInput: true,
-				InputAnchors: []model.NodeInputAnchor{
+				InputAnchors: []model.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "Data",
@@ -229,7 +229,7 @@ func (b *Builtin) Components() []model.Component {
 					GoPackage:  model.ComponentGoPackage{},
 					GoScript:   model.ComponentGoScript{},
 				},
-				InputAnchors: []model.NodeInputAnchor{
+				InputAnchors: []model.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "Data",
@@ -294,15 +294,16 @@ func (b *Builtin) Components() []model.Component {
 					"script": `package main
 import (
     "context"
-    "fmt"
+    "strings"
 )
 
 func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-    return params, nil
+	return map[string]interface{}{"default": strings.TrimSpace(params["default"].(string))} , nil
 }
 `,
 				},
 				DynamicInput:  true,
+				DynamicOutput: true,
 				OutputAnchors: []model.NodeOutputAnchor{},
 			},
 		},
@@ -318,7 +319,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "raw",
 				},
-				InputAnchors: []model.NodeInputAnchor{
+				InputAnchors: []model.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "数据",
@@ -342,7 +343,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "select",
 				},
-				InputAnchors: []model.NodeInputAnchor{
+				InputAnchors: []model.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "数据",
@@ -387,7 +388,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 				},
 				DynamicInput: true,
 				// dynamic input
-				InputAnchors: []model.NodeInputAnchor{},
+				InputAnchors: []model.NodeInputParam{},
 				InputParams:  []model.NodeInputParam{},
 				OutputAnchors: []model.NodeOutputAnchor{
 					{
@@ -414,7 +415,6 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 
 				// dynamic input
 				DynamicInput: true,
-				InputAnchors: []model.NodeInputAnchor{},
 				InputParams: []model.NodeInputParam{
 					{
 						Name: map[string]string{

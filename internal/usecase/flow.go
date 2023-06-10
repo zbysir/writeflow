@@ -65,8 +65,8 @@ func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]inte
 		return "", err
 	}
 
-	log.Infof("flow: %+v", flow)
-	log.Infof("f: %+v", f)
+	//log.Infof("flow: %+v", flow)
+	//log.Infof("f: %+v", f)
 
 	runId = fmt.Sprintf("flow.%s", uuid.New().String())
 
@@ -83,7 +83,7 @@ func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]inte
 				log.Errorf("status to json err: %v", err)
 				return
 			}
-			log.Infof("%s %s", runId, bs)
+			//log.Infof("%s %s", runId, bs)
 			err = u.ws.Send(runId, bs)
 			if err != nil {
 				log.Errorf("ws send err: %v", err)
