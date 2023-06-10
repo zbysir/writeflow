@@ -14,7 +14,7 @@ type Component interface {
 
 type Flow interface {
 	GetFlowById(ctx context.Context, id int64) (flow *model.Flow, exist bool, err error)
-	CreateFlow(ctx context.Context, component *model.Flow) (err error)
+	CreateFlow(ctx context.Context, component *model.Flow) (id int64, err error)
 	UpdateFlow(ctx context.Context, component *model.Flow) (err error)
 	DeleteFlow(ctx context.Context, id int64) (err error)
 	GetFlowList(ctx context.Context, component GetFlowListParams) (fs []model.Flow, total int, err error)

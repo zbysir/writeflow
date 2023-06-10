@@ -19,6 +19,7 @@ type KeyReq struct {
 type RunFlowReq struct {
 	Id     int64                  `json:"id"`
 	Params map[string]interface{} `json:"params"`
+	Graph  *model.Graph           `json:"graph"`
 }
 
 func (a *ApiService) RegisterFlow(router gin.IRoutes) {
@@ -69,14 +70,15 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 			ctx.Error(err)
 			return
 		}
-		err = a.flowRepo.CreateFlow(ctx, &params)
+		id, err := a.flowRepo.CreateFlow(ctx, &params)
 		if err != nil {
 			ctx.Error(err)
 			return
 		}
 
-		ctx.JSON(200, "ok")
+		ctx.JSON(200, id)
 	})
+
 	router.PUT("/flow", func(ctx *gin.Context) {
 		var params model.Flow
 		err := ctx.Bind(&params)
@@ -115,13 +117,27 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 			ctx.Error(err)
 			return
 		}
-		r, err := a.flowUsecase.RunFlow(context.Background(), params.Id, params.Params)
-		if err != nil {
-			ctx.Error(err)
+		if params.Id == 0 && params.Graph == nil {
+			ctx.Error(fmt.Errorf("id or graph must be set"))
 			return
 		}
-
-		ctx.JSON(200, r)
+		if params.Graph != nil {
+			r, err := a.flowUsecase.RunFlowByDetail(context.Background(), &model.Flow{
+				Graph: *params.Graph,
+			}, params.Params)
+			if err != nil {
+				ctx.Error(err)
+				return
+			}
+			ctx.JSON(200, r)
+		} else {
+			r, err := a.flowUsecase.RunFlow(context.Background(), params.Id, params.Params)
+			if err != nil {
+				ctx.Error(err)
+				return
+			}
+			ctx.JSON(200, r)
+		}
 	})
 
 	type GetComponentsParams struct {

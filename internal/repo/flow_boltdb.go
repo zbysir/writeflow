@@ -192,10 +192,10 @@ func (b *BoltDBFlow) CreateComponent(ctx context.Context, component *model.Compo
 	return
 }
 
-func (b *BoltDBFlow) CreateFlow(ctx context.Context, fl *model.Flow) (err error) {
-	id, err := b.IdSeq("flow")
+func (b *BoltDBFlow) CreateFlow(ctx context.Context, fl *model.Flow) (id int64, err error) {
+	id, err = b.IdSeq("flow")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	fl.Id = id
 	now := time.Now()
@@ -203,11 +203,11 @@ func (b *BoltDBFlow) CreateFlow(ctx context.Context, fl *model.Flow) (err error)
 	fl.CreatedAt = now
 	bs, err := json.Marshal(fl)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	err = b.store.Put(fmt.Sprintf("flow/%v", id), bs, nil)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	return

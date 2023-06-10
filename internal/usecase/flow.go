@@ -60,6 +60,10 @@ func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]inte
 		return "", fmt.Errorf("flow not exist")
 	}
 
+	return u.RunFlowByDetail(ctx, flow, params)
+}
+
+func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map[string]interface{}) (runId string, err error) {
 	f, err := writeflow.FlowFromModel(flow)
 	if err != nil {
 		return "", err
