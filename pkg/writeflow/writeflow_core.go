@@ -551,15 +551,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			if err != nil {
 				return nil, err
 			}
-			if i.List {
-				if _, ok := dependValue[i.Key]; ok {
-					dependValue[i.Key] = append(dependValue[i.Key].([]interface{}), r)
-				} else {
-					dependValue[i.Key] = []interface{}{r}
-				}
-			} else {
-				dependValue[i.Key] = r
-			}
+			dependValue[i.Key] = r
 		}
 
 		cmdName := nodeDef.Cmd

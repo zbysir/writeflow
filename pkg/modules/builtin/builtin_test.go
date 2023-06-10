@@ -3,7 +3,10 @@ package builtin
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
+	"github.com/zbysir/writeflow/internal/model"
+	"github.com/zbysir/writeflow/pkg/writeflow"
 	"testing"
+	"time"
 )
 
 func TestSelect(t *testing.T) {
@@ -60,4 +63,121 @@ func TestSwitch(t *testing.T) {
 
 	assert.Equal(t, true, r["aaa"])
 	assert.Equal(t, nil, r["bbb"])
+}
+
+func TestListComponent(t *testing.T) {
+	f, err := writeflow.FlowFromModel(&model.Flow{
+		Name: "demo_flow",
+		Graph: model.Graph{
+			Nodes: []model.Node{
+				{
+					Id:   "list",
+					Type: "list",
+					Data: model.NodeData{
+						Source: model.ComponentSource{
+							CmdType:    model.BuiltInCmd,
+							BuiltinCmd: "list",
+						},
+						InputParams: []model.NodeInputParam{
+							{
+								Key:       "data",
+								Type:      "string",
+								List:      true,
+								InputType: model.NodeInputTypeAnchor,
+								Anchors: []model.NodeAnchorTarget{
+									{
+										NodeId:    "a",
+										OutputKey: "default",
+									},
+									{
+										NodeId:    "b",
+										OutputKey: "default",
+									},
+								},
+							},
+						},
+						OutputAnchors: []model.NodeOutputAnchor{
+							{
+								Name: nil,
+								Key:  "default",
+								Type: "any",
+								List: false,
+							},
+						},
+
+						Inputs: map[string]string{"name": "bysir", "age": "18"},
+					},
+				},
+				{
+					Id:   "a",
+					Type: "_",
+					Data: model.NodeData{
+						Source: model.ComponentSource{
+							CmdType:    model.BuiltInCmd,
+							BuiltinCmd: "raw",
+						},
+						InputParams: []model.NodeInputParam{
+							{
+								Key:   "default",
+								Type:  "string",
+								Value: "a",
+							},
+						},
+						OutputAnchors: []model.NodeOutputAnchor{
+							{
+								Name: nil,
+								Key:  "default",
+								Type: "any",
+								List: false,
+							},
+						},
+					},
+				},
+				{
+					Id:   "b",
+					Type: "_",
+					Data: model.NodeData{
+						Source: model.ComponentSource{
+							CmdType:    model.BuiltInCmd,
+							BuiltinCmd: "raw",
+						},
+						InputParams: []model.NodeInputParam{
+							{
+								Key:   "default",
+								Type:  "string",
+								Value: "b",
+							},
+						},
+						OutputAnchors: []model.NodeOutputAnchor{
+							{
+								Name: nil,
+								Key:  "default",
+								Type: "any",
+								List: false,
+							},
+						},
+					},
+				},
+			},
+			OutputNodeId: "list",
+		},
+		CreatedAt: time.Time{},
+		UpdatedAt: time.Time{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wf := writeflow.NewWriteFlowCore()
+	for k, v := range New().Cmd() {
+		wf.RegisterCmd(k, v)
+	}
+	rsp, err := wf.ExecFlow(context.Background(), f, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rspDefault := rsp["default"]
+
+	assert.Equal(t, []interface{}{"a", "b"}, rspDefault)
 }

@@ -530,7 +530,7 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 			return map[string]interface{}{"default": l}, nil
 		}),
 		"list": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-			//log.Infof("select params: %+v", params)
+			//log.Infof("list params: %+v", params)
 			p := params["data"]
 			if p == nil {
 				return map[string]interface{}{}, nil

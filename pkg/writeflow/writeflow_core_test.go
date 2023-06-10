@@ -70,13 +70,11 @@ func TestGetRootNodes(t *testing.T) {
 					Type: "hello_component",
 					Data: model.NodeData{
 
-						InputAnchors: []model.NodeInputAnchor{
+						InputParams: []model.NodeInputParam{
 							{
-								Name:     nil,
-								Key:      "to_hello2",
-								Type:     "",
-								List:     false,
-								Optional: false,
+								Name:      nil,
+								Key:       "to_hello2",
+								InputType: model.NodeInputTypeAnchor,
 							},
 						},
 
@@ -107,25 +105,31 @@ func TestSwitch(t *testing.T) {
 				Cmd: "_switch",
 				Inputs: []NodeInput{
 					{
-						Key:       "data",
-						Type:      "literal",
-						Literal:   "a",
-						NodeId:    "",
-						OutputKey: "",
+						Key:     "data",
+						Type:    "literal",
+						Literal: "a",
 					},
 					{
-						Key:       "data=='c'",
-						Type:      "anchor",
-						Literal:   "",
-						NodeId:    "c",
-						OutputKey: "default",
+						Key:     "data=='c'",
+						Type:    "anchor",
+						Literal: "",
+						Anchors: []model.NodeAnchorTarget{
+							{
+								NodeId:    "c",
+								OutputKey: "default",
+							},
+						},
 					},
 					{
-						Key:       "data=='a'",
-						Type:      "anchor",
-						Literal:   "",
-						NodeId:    "b",
-						OutputKey: "default",
+						Key:     "data=='a'",
+						Type:    "anchor",
+						Literal: "",
+						Anchors: []model.NodeAnchorTarget{
+							{
+								NodeId:    "b",
+								OutputKey: "default",
+							},
+						},
 					},
 				},
 			},
@@ -134,11 +138,9 @@ func TestSwitch(t *testing.T) {
 				Cmd: model.NothingCmd,
 				Inputs: []NodeInput{
 					{
-						Key:       "default",
-						Type:      "literal",
-						Literal:   "b",
-						NodeId:    "",
-						OutputKey: "",
+						Key:     "default",
+						Type:    "literal",
+						Literal: "b",
 					},
 				},
 			},
@@ -147,11 +149,9 @@ func TestSwitch(t *testing.T) {
 				Cmd: model.NothingCmd,
 				Inputs: []NodeInput{
 					{
-						Key:       "default",
-						Type:      "literal",
-						Literal:   "c",
-						NodeId:    "",
-						OutputKey: "",
+						Key:     "default",
+						Type:    "literal",
+						Literal: "c",
 					},
 				},
 			},
@@ -204,18 +204,20 @@ func TestFor(t *testing.T) {
 				Cmd: "_for",
 				Inputs: []NodeInput{
 					{
-						Key:       "data",
-						Type:      "literal",
-						Literal:   []string{"a", "b", "c"},
-						NodeId:    "",
-						OutputKey: "",
+						Key:     "data",
+						Type:    "literal",
+						Literal: []string{"a", "b", "c"},
 					},
 					{
-						Key:       "item",
-						Type:      "anchor",
-						Literal:   "",
-						NodeId:    "b",
-						OutputKey: "default",
+						Key:     "item",
+						Type:    "anchor",
+						Literal: "",
+						Anchors: []model.NodeAnchorTarget{
+							{
+								NodeId:    "b",
+								OutputKey: "default",
+							},
+						},
 					},
 				},
 			},
@@ -224,18 +226,20 @@ func TestFor(t *testing.T) {
 				Cmd: "add_prefix",
 				Inputs: []NodeInput{
 					{
-						Key:       "prefix",
-						Type:      "literal",
-						Literal:   "hi: ",
-						NodeId:    "",
-						OutputKey: "",
+						Key:     "prefix",
+						Type:    "literal",
+						Literal: "hi: ",
 					},
 					{
-						Key:       "default",
-						Type:      "anchor",
-						Literal:   "",
-						NodeId:    "a",
-						OutputKey: "item",
+						Key:     "default",
+						Type:    "anchor",
+						Literal: "",
+						Anchors: []model.NodeAnchorTarget{
+							{
+								NodeId:    "a",
+								OutputKey: "item",
+							},
+						},
 					},
 				},
 			},
@@ -353,9 +357,9 @@ func TestOpenAIFlow(t *testing.T) {
 					Data: model.NodeData{
 						Inputs: map[string]string{"query": "INPUT.query", "llm": "openai.default"},
 
-						InputAnchors: []model.NodeInputAnchor{
-							{Key: "query", Type: "string"},
-							{Key: "llm", Type: "llm"},
+						InputParams: []model.NodeInputParam{
+							{Key: "query", Type: "string", InputType: model.NodeInputTypeAnchor},
+							{Key: "llm", Type: "llm", InputType: model.NodeInputTypeAnchor},
 						},
 						OutputAnchors: []model.NodeOutputAnchor{
 							{Key: "default", Type: "string", List: false},
