@@ -150,18 +150,20 @@ func (b *Builtin) Components() []model.Component {
 					},
 					{
 						Name: map[string]string{
-							"zh-CN": "Body",
-						},
-						Key:      "body",
-						Type:     "any",
-						Optional: true,
-					},
-					{
-						Name: map[string]string{
 							"zh-CN": "方法 [GET/POST/PUT/DELETE]",
 						},
 						Key:      "method",
 						Type:     "string",
+						Optional: true,
+					},
+				},
+				InputAnchors: []model.NodeInputAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Body",
+						},
+						Key:      "body",
+						Type:     "any",
 						Optional: true,
 					},
 				},
