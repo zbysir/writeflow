@@ -44,6 +44,21 @@ type NodeInput struct {
 	Anchors []model.NodeAnchorTarget
 }
 
+type NodeInputs []NodeInput
+
+func (n NodeInputs) PopKey(key string) (NodeInput, NodeInputs, bool) {
+	for i, v := range n {
+		if v.Key == key {
+			nn := make([]NodeInput, len(n)-1)
+			copy(nn, n[:i])
+			copy(nn[i:], n[i+1:])
+			return v, nn, true
+		}
+	}
+
+	return NodeInput{}, n, false
+}
+
 type NodeAnchorTarget struct {
 	NodeId    string `json:"node_id"`    // 关联的节点 id
 	OutputKey string `json:"output_key"` // 关联的节点输出 key
@@ -53,7 +68,7 @@ type Node struct {
 	Id       string
 	Cmd      string
 	BuiltCmd schema.CMDer
-	Inputs   []NodeInput
+	Inputs   NodeInputs
 }
 
 type ForItemNode struct {
@@ -418,6 +433,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 	}()
 
 	nodeDef := f.flowDef.Nodes[nodeId]
+	inputs := nodeDef.Inputs
 
 	var calcInput = func(i NodeInput, nocache bool) (interface{}, error) {
 		switch i.Type {
@@ -460,27 +476,33 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		return nil, nil
 	}
 
-	inputs := nodeDef.Inputs
+	// 当 _enable 为 false 时，才会跳过节点。
+	enableInput, inputs, ok := inputs.PopKey("_enable")
+	if ok {
+		enable, err := calcInput(enableInput, nocache)
+		if err != nil {
+			return nil, err
+		}
+		if cast.ToBool(cast.ToString(enable)) == false {
+			return nil, nil
+		}
+	}
+
 	//log.Infof("input %v: %+v", nodeId, inputs)
 	// switch 和 for 内置实现，不使用 cmd 逻辑。
 	switch nodeDef.Cmd {
 	case "_switch":
 		// get data
 		var data interface{}
-		for _, input := range inputs {
-			if input.Key == "data" {
-				data, err = calcInput(input, nocache)
-				if err != nil {
-					return nil, err
-				}
+		dataInput, inputs, ok := inputs.PopKey("data")
+		if ok {
+			data, err = calcInput(dataInput, nocache)
+			if err != nil {
+				return nil, err
 			}
 		}
 
 		for _, input := range inputs {
-			if input.Key == "data" {
-				continue
-			}
-
 			condition := input.Key
 
 			v, err := LookInterface(data, condition)

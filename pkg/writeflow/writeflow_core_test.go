@@ -40,7 +40,6 @@ func TestGetRootNodes(t *testing.T) {
 
 						Inputs: map[string]string{"name": "bysir", "age": "18"},
 					},
-					PositionAbsolute: model.NodePosition{},
 				}, {
 					Id:   "hello2",
 					Type: "hello_component",
@@ -63,7 +62,6 @@ func TestGetRootNodes(t *testing.T) {
 
 						Inputs: map[string]string{"name": "bysir", "age": "18"},
 					},
-					PositionAbsolute: model.NodePosition{},
 				},
 				{
 					Id:   "hello3",
@@ -80,7 +78,6 @@ func TestGetRootNodes(t *testing.T) {
 
 						Inputs: map[string]string{"to_hello2": "hello2.name"},
 					},
-					PositionAbsolute: model.NodePosition{},
 				},
 			},
 			OutputNodeId: "hello",
@@ -107,7 +104,7 @@ func TestSwitch(t *testing.T) {
 					{
 						Key:     "data",
 						Type:    "literal",
-						Literal: "a",
+						Literal: "b",
 					},
 					{
 						Key:     "data=='c'",
@@ -121,7 +118,7 @@ func TestSwitch(t *testing.T) {
 						},
 					},
 					{
-						Key:     "data=='a'",
+						Key:     "data=='b'",
 						Type:    "anchor",
 						Literal: "",
 						Anchors: []model.NodeAnchorTarget{
@@ -168,12 +165,12 @@ func TestSwitch(t *testing.T) {
 	}
 
 	assert.Equal(t, "b", rsp["default"])
-	assert.Equal(t, "data=='a'", rsp["branch"])
+	assert.Equal(t, "data=='b'", rsp["branch"])
 
 	f.Nodes["a"].Inputs[0].Literal = "d"
 	r = newRunner(nil, &f)
 	rsp, err = r.ExecNode(context.Background(), "a", false, func(result model.NodeStatus) {
-		t.Logf("%+v", result)
+		//t.Logf("%+v", result)
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -186,7 +183,7 @@ func TestSwitch(t *testing.T) {
 
 	r = newRunner(nil, &f)
 	rsp, err = r.ExecNode(context.Background(), "a", false, func(result model.NodeStatus) {
-		t.Logf("%+v", result)
+		//t.Logf("%+v", result)
 	})
 	if err != nil {
 		t.Fatal(err)

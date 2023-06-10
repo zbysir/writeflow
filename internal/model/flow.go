@@ -71,7 +71,6 @@ type Node struct {
 	Position         NodePosition `json:"position"`
 	Type             string       `json:"type"` // = Component.Type
 	Data             NodeData     `json:"data"`
-	PositionAbsolute NodePosition `json:"position_absolute,omitempty"`
 }
 
 type ComponentGoScript struct {
@@ -148,7 +147,7 @@ type ComponentData struct {
 	Source        ComponentSource `json:"source"`
 	DynamicInput  bool            `json:"dynamic_input"`  // 是否可以添加动态输入
 	DynamicOutput bool            `json:"dynamic_output"` // 输出是否和动态输入一样
-
+	CanDisable    bool            `json:"can_disable"`    // 是否可以禁用，如果禁用则不会执行，可以禁用的组件上会有一个开关，当关闭时需要填写一个 key 为 _enable 的输入。
 	// InputAnchors 将要废弃
 	InputAnchors  []NodeInputParam   `json:"input_anchors,omitempty"` // 输入锚点定义
 	InputParams   []NodeInputParam   `json:"input_params,omitempty"`  // 字面参数定义
