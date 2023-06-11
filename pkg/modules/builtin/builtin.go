@@ -342,7 +342,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 					"zh-CN": "Javascript 脚本",
 				},
 				Source: model.ComponentSource{
-					CmdType:    model.GoScriptCmd,
+					CmdType:    model.JavaScriptCmd,
 					BuiltinCmd: "",
 					GoPackage:  model.ComponentGoPackage{},
 					Script: model.ComponentScript{
