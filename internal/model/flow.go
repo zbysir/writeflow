@@ -156,6 +156,10 @@ type ComponentData struct {
 	OutputAnchors []NodeOutputAnchor `json:"output_anchors,omitempty"` // 输出锚点定义
 	// Inputs 将要废弃
 	Inputs map[string]string `json:"inputs"` // key -> response (node_id.output_key)
+	Config ComponentConfig   `json:"config"`
+}
+
+type ComponentConfig interface {
 }
 
 func (d *ComponentData) GetInputValue(key string) string {

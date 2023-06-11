@@ -3,6 +3,7 @@ package writeflow
 import (
 	"context"
 	"fmt"
+	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
@@ -156,7 +157,7 @@ func TestSwitch(t *testing.T) {
 		OutputNodeId: "a",
 	}
 
-	r := newRunner(nil, &f)
+	r := newRunner(nil, &f, 1)
 	rsp, err := r.ExecNode(context.Background(), "a", false, func(result model.NodeStatus) {
 		//t.Logf("%+v", result)
 	})
@@ -168,7 +169,7 @@ func TestSwitch(t *testing.T) {
 	assert.Equal(t, "data=='b'", rsp["branch"])
 
 	f.Nodes["a"].Inputs[0].Literal = "d"
-	r = newRunner(nil, &f)
+	r = newRunner(nil, &f, 0)
 	rsp, err = r.ExecNode(context.Background(), "a", false, func(result model.NodeStatus) {
 		//t.Logf("%+v", result)
 	})
@@ -181,7 +182,7 @@ func TestSwitch(t *testing.T) {
 
 	f.Nodes["a"].Inputs[0].Literal = "c"
 
-	r = newRunner(nil, &f)
+	r = newRunner(nil, &f, 0)
 	rsp, err = r.ExecNode(context.Background(), "a", false, func(result model.NodeStatus) {
 		//t.Logf("%+v", result)
 	})
@@ -248,7 +249,7 @@ func TestFor(t *testing.T) {
 		"add_prefix": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			return map[string]interface{}{"default": fmt.Sprintf("%v%v", params["prefix"], params["default"])}, nil
 		}),
-	}, &f)
+	}, &f, 1)
 	rsp, err := r.ExecNode(context.Background(), "a", false, func(result model.NodeStatus) {
 		//t.Logf("%+v", result)
 	})
@@ -315,7 +316,7 @@ func TestFromModelFlow(t *testing.T) {
 		return map[string]interface{}{"default": "hello: " + (params["name"].(string))}, nil
 	}))
 
-	rsp, err := wf.ExecFlow(context.Background(), f, map[string]interface{}{"name": "bysir"})
+	rsp, err := wf.ExecFlow(context.Background(), f, map[string]interface{}{"name": "bysir"}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,6 +324,130 @@ func TestFromModelFlow(t *testing.T) {
 	rspDefault := rsp["default"]
 
 	assert.Equal(t, "hello: bysir", rspDefault)
+}
+
+func TestParallel(t *testing.T) {
+	f, err := FlowFromModel(&model.Flow{
+		Name: "demo_flow",
+		Graph: model.Graph{
+			Nodes: []model.Node{
+				{
+					Id:   "root",
+					Type: "sleep",
+					Data: model.NodeData{
+						Source: model.ComponentSource{
+							CmdType:    model.BuiltInCmd,
+							BuiltinCmd: "sleep",
+						},
+						InputAnchors: nil,
+						InputParams: []model.NodeInputParam{
+							{
+								Key:   "second",
+								Type:  "int",
+								Value: "1",
+							},
+							{
+								Key:       "a",
+								InputType: NodeInputAnchor,
+								Anchors: []model.NodeAnchorTarget{
+									{
+										NodeId:    "a",
+										OutputKey: "default",
+									},
+								},
+							},
+							{
+								Key:       "b",
+								InputType: NodeInputAnchor,
+								Anchors: []model.NodeAnchorTarget{
+									{
+										NodeId:    "b",
+										OutputKey: "default",
+									},
+								},
+							},
+							{
+								Key:       "c",
+								InputType: NodeInputAnchor,
+								Anchors: []model.NodeAnchorTarget{
+									{
+										NodeId:    "c",
+										OutputKey: "default",
+									},
+								},
+							},
+							{
+								Key:       "d",
+								InputType: NodeInputAnchor,
+								Anchors: []model.NodeAnchorTarget{
+									{
+										NodeId:    "d",
+										OutputKey: "default",
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Id: "a", Type: "sleep",
+					Data: model.NodeData{
+						Source:      model.ComponentSource{CmdType: model.BuiltInCmd, BuiltinCmd: "sleep"},
+						InputParams: []model.NodeInputParam{{Key: "second", Type: "int", Value: "1"}},
+					},
+				},
+				{
+					Id: "b", Type: "sleep",
+					Data: model.NodeData{
+						Source:      model.ComponentSource{CmdType: model.BuiltInCmd, BuiltinCmd: "sleep"},
+						InputParams: []model.NodeInputParam{{Key: "second", Type: "int", Value: "1"}},
+					},
+				},
+				{
+					Id: "c", Type: "sleep",
+					Data: model.NodeData{
+						Source:      model.ComponentSource{CmdType: model.BuiltInCmd, BuiltinCmd: "sleep"},
+						InputParams: []model.NodeInputParam{{Key: "second", Type: "int", Value: "1"}},
+					},
+				},
+				{
+					Id: "d", Type: "sleep",
+					Data: model.NodeData{
+						Source:      model.ComponentSource{CmdType: model.BuiltInCmd, BuiltinCmd: "sleep"},
+						InputParams: []model.NodeInputParam{{Key: "second", Type: "int", Value: "1"}},
+					},
+				},
+			},
+			OutputNodeId: "hello",
+		},
+		CreatedAt: time.Time{},
+		UpdatedAt: time.Time{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wf := NewWriteFlowCore()
+	wf.RegisterCmd("sleep", cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (map[string]interface{}, error) {
+		time.Sleep(time.Second * time.Duration(cast.ToInt(params["second"])))
+		return params, nil
+	}))
+
+	start := time.Now()
+	// 0: [root, a, b,c,d]  5s
+	// 1: [root, [a], b,c,d]  4s
+	// 2: [root, [a, b], [c, d]] 3s
+	// 3: [root, [a, b, c], d] 3s
+	// 4: [root, [a, b, c, d]] 2s
+	rsp, err := wf.ExecFlow(context.Background(), f, map[string]interface{}{"name": "bysir"}, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rspDefault := rsp["name"]
+
+	t.Logf("spend: %s", time.Since(start))
+	assert.Equal(t, "bysir", rspDefault)
 }
 
 func TestOpenAIFlow(t *testing.T) {
@@ -412,7 +537,7 @@ func TestOpenAIFlow(t *testing.T) {
 	}
 	wf.RegisterCmd("openai", newScript)
 
-	rsp, err := wf.ExecFlow(context.Background(), f, map[string]interface{}{"query": "特斯拉是谁"})
+	rsp, err := wf.ExecFlow(context.Background(), f, map[string]interface{}{"query": "特斯拉是谁"}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

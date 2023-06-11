@@ -51,7 +51,7 @@ type RunStatusMessage struct {
 	Data []byte
 }
 
-func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]interface{}) (runId string, err error) {
+func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]interface{},parallel int) (runId string, err error) {
 	flow, exist, err := u.flowRepo.GetFlowById(ctx, flowId)
 	if err != nil {
 		return "", err
@@ -60,10 +60,10 @@ func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]inte
 		return "", fmt.Errorf("flow not exist")
 	}
 
-	return u.RunFlowByDetail(ctx, flow, params)
+	return u.RunFlowByDetail(ctx, flow, params,parallel)
 }
 
-func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map[string]interface{}) (runId string, err error) {
+func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map[string]interface{}, parallel int) (runId string, err error) {
 	f, err := writeflow.FlowFromModel(flow)
 	if err != nil {
 		return "", err
@@ -74,7 +74,7 @@ func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map
 
 	runId = fmt.Sprintf("flow.%s", uuid.New().String())
 
-	status, err := u.wirteflow.ExecFlowAsync(ctx, f, params)
+	status, err := u.wirteflow.ExecFlowAsync(ctx, f, params, parallel)
 	if err != nil {
 		return "", err
 	}

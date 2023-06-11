@@ -172,7 +172,7 @@ func TestListComponent(t *testing.T) {
 	for k, v := range New().Cmd() {
 		wf.RegisterCmd(k, v)
 	}
-	rsp, err := wf.ExecFlow(context.Background(), f, nil)
+	rsp, err := wf.ExecFlow(context.Background(), f, nil, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

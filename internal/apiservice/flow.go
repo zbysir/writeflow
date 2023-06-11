@@ -17,9 +17,10 @@ type KeyReq struct {
 }
 
 type RunFlowReq struct {
-	Id     int64                  `json:"id"`
-	Params map[string]interface{} `json:"params"`
-	Graph  *model.Graph           `json:"graph"`
+	Id       int64                  `json:"id"`
+	Params   map[string]interface{} `json:"params"`
+	Graph    *model.Graph           `json:"graph"`
+	Parallel int                    `json:"parallel"`
 }
 
 func (a *ApiService) RegisterFlow(router gin.IRoutes) {
@@ -124,14 +125,14 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 		if params.Graph != nil {
 			r, err := a.flowUsecase.RunFlowByDetail(context.Background(), &model.Flow{
 				Graph: *params.Graph,
-			}, params.Params)
+			}, params.Params, params.Parallel)
 			if err != nil {
 				ctx.Error(err)
 				return
 			}
 			ctx.JSON(200, r)
 		} else {
-			r, err := a.flowUsecase.RunFlow(context.Background(), params.Id, params.Params)
+			r, err := a.flowUsecase.RunFlow(context.Background(), params.Id, params.Params, params.Parallel)
 			if err != nil {
 				ctx.Error(err)
 				return

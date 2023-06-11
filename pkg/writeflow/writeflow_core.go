@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/samber/lo"
+	go_keylock "github.com/sjy3/go-keylock"
 	"github.com/spf13/cast"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
@@ -228,11 +229,11 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 	}, nil
 }
 
-func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}) (rsp map[string]interface{}, err error) {
+func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	result, err := f.ExecFlowAsync(ctx, flow, initParams)
+	result, err := f.ExecFlowAsync(ctx, flow, initParams, parallel)
 	if err != nil {
 		return nil, err
 	}
@@ -247,13 +248,13 @@ func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map
 	return
 }
 
-func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, ) (results chan *model.NodeStatus, err error) {
+func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (results chan *model.NodeStatus, err error) {
 	// use params node to get init params
 	f.RegisterCmd("_params", cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 		return initParams, nil
 	}))
 
-	fr := newRunner(f.cmds, flow)
+	fr := newRunner(f.cmds, flow, parallel)
 	rootNodes := flow.Nodes.GetRootNodes()
 
 	results = make(chan *model.NodeStatus, 100)
@@ -285,6 +286,8 @@ type runner struct {
 	cmdRspCache map[string]map[string]interface{} // nodeId->key->value
 	inject      map[string]map[string]interface{} // nodeId->key->value
 	l           sync.RWMutex                      // lock for map
+	keyLock     *go_keylock.KeyLock               // lock for cmdRspCache (防止并发下缓存穿透)
+	limitChan   chan struct{}
 }
 
 func (r *runner) getRspCache(nodeId string, key string) (v interface{}, exist bool) {
@@ -341,12 +344,15 @@ func (r *runner) setInject(nodeId string, k string, v interface{}) {
 	return
 }
 
-func newRunner(cmd map[string]schema.CMDer, flowDef *Flow) *runner {
+func newRunner(cmd map[string]schema.CMDer, flowDef *Flow, parallel int) *runner {
 	return &runner{
-		cmd:         cmd,
 		flowDef:     flowDef,
+		cmd:         cmd,
 		cmdRspCache: map[string]map[string]interface{}{},
 		inject:      map[string]map[string]interface{}{},
+		l:           sync.RWMutex{},
+		keyLock:     go_keylock.NewKeyLock(),
+		limitChan:   make(chan struct{}, parallel),
 	}
 }
 
@@ -466,17 +472,23 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					return v, nil
 				}
 
+				// 防止缓存穿透
+				lockKey := fmt.Sprintf("%s", i.NodeId)
+				f.keyLock.Lock(lockKey)
+
 				v, ok = f.getRspCache(i.NodeId, i.OutputKey)
 				if ok && !nocache {
 					values = append(values, v)
 				} else {
 					rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeRun)
 					if err != nil {
+						f.keyLock.Unlock(lockKey)
 						return nil, err
 					}
 					values = append(values, rsps[i.OutputKey])
 
 					f.setRspCache(i.NodeId, rsps)
+					f.keyLock.Unlock(lockKey)
 				}
 			}
 
@@ -579,15 +591,48 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		rsp = map[string]interface{}{"default": rsps}
 	default:
 		dependValue := map[string]interface{}{}
+		var dependValueLock sync.Mutex
 		var inputKeys []string
+
+		var wg sync.WaitGroup
+		var calcErr error
 		for _, i := range inputs {
 			inputKeys = append(inputKeys, i.Key)
 
-			r, err := calcInput(i, nocache)
-			if err != nil {
-				return nil, err
+			// 并发执行
+			// 由于是递归，不方便控制节点执行数量，而是控制协程数量（不包括主协程）。
+			select {
+			case f.limitChan <- struct{}{}:
+				wg.Add(1)
+				go func(i NodeInput) {
+					defer func() {
+						wg.Done()
+						<-f.limitChan
+					}()
+					if calcErr != nil {
+						return
+					}
+
+					r, err := calcInput(i, nocache)
+					if err != nil {
+						calcErr = err
+					} else {
+						dependValueLock.Lock()
+						dependValue[i.Key] = r
+						dependValueLock.Unlock()
+					}
+				}(i)
+			default:
+				r, err := calcInput(i, nocache)
+				if err != nil {
+					return nil, err
+				}
+				dependValue[i.Key] = r
 			}
-			dependValue[i.Key] = r
+		}
+		wg.Wait()
+		if calcErr != nil {
+			return nil, calcErr
 		}
 
 		cmdName := nodeDef.Cmd

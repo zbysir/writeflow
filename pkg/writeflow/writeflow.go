@@ -94,10 +94,10 @@ func (w *WriteFlow) GetComponentByKey(key string) (c model.Component, exist bool
 	return c, false, nil
 }
 
-func (w *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}) (rsp map[string]interface{}, err error) {
-	return w.core.ExecFlow(ctx, flow, initParams)
+func (w *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
+	return w.core.ExecFlow(ctx, flow, initParams, parallel)
 }
 
-func (w *WriteFlow) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}) (status chan *model.NodeStatus, err error) {
-	return w.core.ExecFlowAsync(ctx, flow, initParams)
+func (w *WriteFlow) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (status chan *model.NodeStatus, err error) {
+	return w.core.ExecFlowAsync(ctx, flow, initParams, parallel)
 }
