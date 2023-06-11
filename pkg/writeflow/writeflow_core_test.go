@@ -272,7 +272,7 @@ func TestFromModelFlow(t *testing.T) {
 							CmdType:    model.BuiltInCmd,
 							BuiltinCmd: "hello_component",
 							GoPackage:  model.ComponentGoPackage{},
-							GoScript:   model.ComponentGoScript{},
+							Script:     model.ComponentScript{},
 						},
 						InputAnchors: nil,
 						InputParams: []model.NodeInputParam{

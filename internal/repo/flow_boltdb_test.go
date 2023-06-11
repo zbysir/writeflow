@@ -27,9 +27,7 @@ func TestComponent(t *testing.T) {
 			Description: nil,
 			Source: model.ComponentSource{
 				CmdType: "",
-				GoScript: model.ComponentGoScript{
-					Script: "package main;",
-				},
+				Script:  model.ComponentScript{InputKey: "script"},
 			},
 			InputAnchors:  nil,
 			InputParams:   nil,
@@ -45,7 +43,7 @@ func TestComponent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, "package main;", cs["openai"].Data.Source.GoScript.Script)
+	assert.Equal(t, "script", cs["openai"].Data.Source.Script.InputKey)
 
 	cl, total, err := f.GetComponentList(ctx, GetFlowListParams{})
 	if err != nil {
@@ -66,7 +64,7 @@ func TestFlow(t *testing.T) {
 	}
 	f := NewBoltDBFlow(s)
 	ctx := context.Background()
-	err = f.CreateFlow(ctx, &model.Flow{
+	_, err = f.CreateFlow(ctx, &model.Flow{
 		Id: 0,
 		Graph: model.Graph{
 			Nodes: nil,

@@ -52,7 +52,7 @@ func (l *LangChain) Components() []model.Component {
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "new_openai",
 					GoPackage:  model.ComponentGoPackage{},
-					GoScript:   model.ComponentGoScript{},
+					Script:     model.ComponentScript{},
 				},
 				InputAnchors: nil,
 				InputParams: []model.NodeInputParam{

@@ -65,18 +65,18 @@ type NodePosition struct {
 
 // Node 是 Component 的实例
 type Node struct {
-	Id               string       `json:"id"` // 前端自己生成，随意，保证画布中不重复就行。
-	Width            int          `json:"width"`
-	Height           int          `json:"height"`
-	Position         NodePosition `json:"position"`
-	Type             string       `json:"type"` // = Component.Type
-	Data             NodeData     `json:"data"`
+	Id       string       `json:"id"` // 前端自己生成，随意，保证画布中不重复就行。
+	Width    int          `json:"width"`
+	Height   int          `json:"height"`
+	Position NodePosition `json:"position"`
+	Type     string       `json:"type"` // = Component.Type
+	Data     NodeData     `json:"data"`
 }
 
-type ComponentGoScript struct {
-	Script   string `json:"script,omitempty"`
+type ComponentScript struct {
 	InputKey string `json:"input_key"`
 }
+
 type ComponentGoPackage struct {
 	GitUrl string `json:"git_url,omitempty"`
 }
@@ -84,10 +84,11 @@ type ComponentGoPackage struct {
 type ComponentCmdType = string
 
 const (
-	GoScriptCmd  ComponentCmdType = "go_script"
-	GoPackageCmd ComponentCmdType = "go_package"
-	BuiltInCmd   ComponentCmdType = "builtin"
-	NothingCmd   ComponentCmdType = "nothing"
+	GoScriptCmd   ComponentCmdType = "go_script"
+	JavaScriptCmd ComponentCmdType = "js_script"
+	GoPackageCmd  ComponentCmdType = "go_package"
+	BuiltInCmd    ComponentCmdType = "builtin"
+	NothingCmd    ComponentCmdType = "nothing"
 )
 
 // ComponentSource 组件数据源，可以用来得到 Cmd
@@ -95,7 +96,7 @@ type ComponentSource struct {
 	CmdType    ComponentCmdType   `json:"cmd_type"` // go_script / git / builtin
 	BuiltinCmd string             `json:"builtin_cmd"`
 	GoPackage  ComponentGoPackage `json:"go_package,omitempty"`
-	GoScript   ComponentGoScript  `json:"go_script,omitempty"`
+	Script     ComponentScript    `json:"script,omitempty"`
 }
 
 type NodeOutputAnchor struct {
@@ -118,7 +119,7 @@ type NodeInputParam struct {
 	Key         string             `json:"key"`
 	InputType   NodeInputType      `json:"input_type"`
 	Type        string             `json:"type"`               // 数据模型，如 string / int / json / any
-	DisplayType string             `json:"display_type"`       // 显示类型，如 code / text / textarea / select / checkbox / radio
+	DisplayType string             `json:"display_type"`       // 显示类型，如 code / input / textarea / select / checkbox / radio
 	Options     []string           `json:"options"`            // 如果是 select / checkbox / radio，需要提供 options
 	Optional    bool               `json:"optional,omitempty"` // 是否是可选的
 	Dynamic     bool               `json:"dynamic,omitempty"`  // 是否是动态输入，是动态输入才能删除。

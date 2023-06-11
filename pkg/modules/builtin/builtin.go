@@ -101,7 +101,7 @@ func (b *Builtin) Components() []model.Component {
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "raw",
 					GoPackage:  model.ComponentGoPackage{},
-					GoScript:   model.ComponentGoScript{},
+					Script:     model.ComponentScript{},
 				},
 				InputParams: []model.NodeInputParam{
 					{
@@ -127,6 +127,31 @@ func (b *Builtin) Components() []model.Component {
 		},
 		{
 			Id:       0,
+			Type:     "params",
+			Category: "input",
+			Data: model.ComponentData{
+				Name: map[string]string{
+					"zh-CN": "请求参数",
+				},
+				Source: model.ComponentSource{
+					CmdType:    model.BuiltInCmd,
+					BuiltinCmd: "_params",
+					GoPackage:  model.ComponentGoPackage{},
+					Script:     model.ComponentScript{},
+				},
+				OutputAnchors: []model.NodeOutputAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Default",
+						},
+						Key:  "default",
+						Type: "any",
+					},
+				},
+			},
+		},
+		{
+			Id:       0,
 			Type:     "call_http",
 			Category: "data",
 			Data: model.ComponentData{
@@ -137,7 +162,7 @@ func (b *Builtin) Components() []model.Component {
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "call_http",
 					GoPackage:  model.ComponentGoPackage{},
-					GoScript:   model.ComponentGoScript{},
+					Script:     model.ComponentScript{},
 				},
 				InputParams: []model.NodeInputParam{
 					{
@@ -191,7 +216,7 @@ func (b *Builtin) Components() []model.Component {
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "_switch",
 					GoPackage:  model.ComponentGoPackage{},
-					GoScript:   model.ComponentGoScript{},
+					Script:     model.ComponentScript{},
 				},
 				// DynamicInput for conditions
 				DynamicInput: true,
@@ -227,7 +252,7 @@ func (b *Builtin) Components() []model.Component {
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "_for",
 					GoPackage:  model.ComponentGoPackage{},
-					GoScript:   model.ComponentGoScript{},
+					Script:     model.ComponentScript{},
 				},
 				InputAnchors: []model.NodeInputParam{
 					{
@@ -275,7 +300,7 @@ func (b *Builtin) Components() []model.Component {
 					CmdType:    model.GoScriptCmd,
 					BuiltinCmd: "",
 					GoPackage:  model.ComponentGoPackage{},
-					GoScript: model.ComponentGoScript{
+					Script: model.ComponentScript{
 						InputKey: "script",
 					},
 				},
@@ -305,6 +330,40 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 				DynamicInput:  true,
 				DynamicOutput: true,
 				OutputAnchors: []model.NodeOutputAnchor{},
+			},
+		},
+		{
+			Id:       0,
+			Type:     "js_script",
+			Category: "script",
+			Data: model.ComponentData{
+				Name: map[string]string{
+					"zh-CN": "Javascript 脚本",
+				},
+				Source: model.ComponentSource{
+					CmdType:    model.GoScriptCmd,
+					BuiltinCmd: "",
+					GoPackage:  model.ComponentGoPackage{},
+					Script: model.ComponentScript{
+						InputKey: "script",
+					},
+				},
+				InputParams: []model.NodeInputParam{
+					{
+						Name: map[string]string{
+							"zh-CN": "脚本代码",
+						},
+						Key:         "script",
+						Type:        "string",
+						DisplayType: "code/javascript",
+						Optional:    false,
+					},
+				},
+				Inputs: map[string]string{
+					"script": `function exec (params){return params}`,
+				},
+				DynamicInput:  true,
+				DynamicOutput: true,
 			},
 		},
 		{

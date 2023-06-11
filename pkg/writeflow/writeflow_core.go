@@ -187,13 +187,24 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 		case model.NothingCmd:
 			cmdName = model.NothingCmd
 		case model.GoScriptCmd:
-			key := node.Data.Source.GoScript.InputKey
+			key := node.Data.Source.Script.InputKey
 			if key == "" {
 				key = "script"
 			}
 			script := node.Data.GetInputValue(key)
 			var err error
 			cmder, err = cmd.NewGoScript(nil, "", script)
+			if err != nil {
+				return nil, fmt.Errorf("parse node '%v' script '%v' error: %v", node.Id, script, err)
+			}
+		case model.JavaScriptCmd:
+			key := node.Data.Source.Script.InputKey
+			if key == "" {
+				key = "script"
+			}
+			script := node.Data.GetInputValue(key)
+			var err error
+			cmder, err = cmd.NewJavaScript(script)
 			if err != nil {
 				return nil, fmt.Errorf("parse node '%v' script '%v' error: %v", node.Id, script, err)
 			}
@@ -243,34 +254,37 @@ func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map
 }
 
 func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, results chan *model.NodeStatus) (err error) {
-	// use INPUT node to get init params
-	f.RegisterCmd("INPUT", cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	// use params node to get init params
+	f.RegisterCmd("_params", cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 		return initParams, nil
 	}))
 
 	fr := newRunner(f.cmds, flow)
-	runNodes := flow.Nodes.GetRootNodes()
+	rootNodes := flow.Nodes.GetRootNodes()
 
-	for _, node := range runNodes {
-		_, err := fr.ExecNode(ctx, node.Id, false, func(result model.NodeStatus) {
-			results <- &result
-		})
-		if err != nil {
-			return err
-		}
-
-		//log.Infof("node: %v, rsp: %+v", node.Id, rsp)
+	var wg sync.WaitGroup
+	for _, node := range rootNodes {
+		node := node
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = fr.ExecNode(ctx, node.Id, false, func(result model.NodeStatus) {
+				results <- &result
+			})
+		}()
 	}
+
+	wg.Wait()
 
 	return
 }
 
 type runner struct {
-	cmd         map[string]schema.CMDer // id -> cmder
 	flowDef     *Flow
+	cmd         map[string]schema.CMDer           // id -> cmder
 	cmdRspCache map[string]map[string]interface{} // nodeId->key->value
 	inject      map[string]map[string]interface{} // nodeId->key->value
-	l           sync.RWMutex
+	l           sync.RWMutex                      // lock for map
 }
 
 func (r *runner) getRspCache(nodeId string, key string) (v interface{}, exist bool) {
