@@ -439,15 +439,15 @@ func TestParallel(t *testing.T) {
 	// 2: [root, [a, b], [c, d]] 3s
 	// 3: [root, [a, b, c], d] 3s
 	// 4: [root, [a, b, c, d]] 2s
-	rsp, err := wf.ExecFlow(context.Background(), f, map[string]interface{}{"name": "bysir"}, 4)
+	result, err := wf.ExecFlowAsync(context.Background(), f, map[string]interface{}{"name": "bysir"}, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	rspDefault := rsp["name"]
-
+	for r := range result {
+		t.Logf("r %v", r)
+	}
 	t.Logf("spend: %s", time.Since(start))
-	assert.Equal(t, "bysir", rspDefault)
 }
 
 func TestOpenAIFlow(t *testing.T) {

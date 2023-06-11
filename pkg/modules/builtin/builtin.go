@@ -318,9 +318,9 @@ func (b *Builtin) Components() []model.Component {
 					{
 						InputType: model.NodeInputTypeAnchor,
 						Name: map[string]string{
-							"zh-CN": "Data",
+							"zh-CN": "Default",
 						},
-						Key:  "data",
+						Key:  "default",
 						Type: "any",
 					},
 				},
