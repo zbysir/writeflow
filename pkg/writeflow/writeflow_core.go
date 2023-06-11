@@ -229,19 +229,13 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 }
 
 func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}) (rsp map[string]interface{}, err error) {
-	result := make(chan *model.NodeStatus, len(flow.Nodes))
-
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	go func() {
-		err = f.ExecFlowAsync(ctx, flow, initParams, result)
-		if err != nil {
-			close(result)
-			return
-		}
-		close(result)
-	}()
+	result, err := f.ExecFlowAsync(ctx, flow, initParams)
+	if err != nil {
+		return nil, err
+	}
 
 	for r := range result {
 		if r.NodeId == flow.OutputNodeId && r.Status == model.StatusSuccess {
@@ -253,7 +247,7 @@ func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map
 	return
 }
 
-func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, results chan *model.NodeStatus) (err error) {
+func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, ) (results chan *model.NodeStatus, err error) {
 	// use params node to get init params
 	f.RegisterCmd("_params", cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 		return initParams, nil
@@ -262,19 +256,25 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 	fr := newRunner(f.cmds, flow)
 	rootNodes := flow.Nodes.GetRootNodes()
 
-	var wg sync.WaitGroup
-	for _, node := range rootNodes {
-		node := node
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, _ = fr.ExecNode(ctx, node.Id, false, func(result model.NodeStatus) {
-				results <- &result
-			})
+	results = make(chan *model.NodeStatus, 100)
+	go func() {
+		defer func() {
+			close(results)
 		}()
-	}
+		var wg sync.WaitGroup
+		for _, node := range rootNodes {
+			node := node
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, _ = fr.ExecNode(ctx, node.Id, false, func(result model.NodeStatus) {
+					results <- &result
+				})
+			}()
+		}
 
-	wg.Wait()
+		wg.Wait()
+	}()
 
 	return
 }

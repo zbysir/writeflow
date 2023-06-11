@@ -79,6 +79,7 @@ func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map
 		return "", err
 	}
 
+	// get status async
 	go func() {
 		log.Infof("%s start", runId)
 		for r := range status {
@@ -99,7 +100,6 @@ func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map
 			log.Errorf("ws send err: %v", err)
 			return
 		}
-
 	}()
 
 	return

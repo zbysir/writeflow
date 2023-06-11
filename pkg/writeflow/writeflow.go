@@ -99,16 +99,5 @@ func (w *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, initParams map[str
 }
 
 func (w *WriteFlow) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}) (status chan *model.NodeStatus, err error) {
-	status = make(chan *model.NodeStatus, len(flow.Nodes))
-
-	go func() {
-		err = w.core.ExecFlowAsync(ctx, flow, initParams, status)
-		if err != nil {
-			close(status)
-			return
-		}
-		close(status)
-	}()
-
-	return
+	return w.core.ExecFlowAsync(ctx, flow, initParams)
 }
