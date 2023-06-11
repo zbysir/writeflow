@@ -181,9 +181,9 @@ func (b *Builtin) Components() []model.Component {
 						Type:     "string",
 						Optional: true,
 					},
-				},
-				InputAnchors: []model.NodeInputParam{
 					{
+						InputType: model.NodeInputTypeAnchor,
+
 						Name: map[string]string{
 							"zh-CN": "Body",
 						},
@@ -220,8 +220,9 @@ func (b *Builtin) Components() []model.Component {
 				},
 				// DynamicInput for conditions
 				DynamicInput: true,
-				InputAnchors: []model.NodeInputParam{
+				InputParams: []model.NodeInputParam{
 					{
+						InputType: model.NodeInputTypeAnchor,
 						Name: map[string]string{
 							"zh-CN": "Data",
 						},
@@ -254,8 +255,9 @@ func (b *Builtin) Components() []model.Component {
 					GoPackage:  model.ComponentGoPackage{},
 					Script:     model.ComponentScript{},
 				},
-				InputAnchors: []model.NodeInputParam{
+				InputParams: []model.NodeInputParam{
 					{
+						InputType: model.NodeInputTypeAnchor,
 						Name: map[string]string{
 							"zh-CN": "Data",
 						},
@@ -263,6 +265,7 @@ func (b *Builtin) Components() []model.Component {
 						Type: "any",
 					},
 					{
+						InputType: model.NodeInputTypeAnchor,
 						Name: map[string]string{
 							"zh-CN": "Item",
 						},
@@ -313,10 +316,7 @@ func (b *Builtin) Components() []model.Component {
 						Type:        "string",
 						DisplayType: "code/go",
 						Optional:    false,
-					},
-				},
-				Inputs: map[string]string{
-					"script": `package main
+						Value: `package main
 import (
     "context"
     "strings"
@@ -326,6 +326,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 	return map[string]interface{}{"default": strings.TrimSpace(params["default"].(string))} , nil
 }
 `,
+					},
 				},
 				DynamicInput:  true,
 				DynamicOutput: true,
@@ -357,10 +358,8 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 						Type:        "string",
 						DisplayType: "code/javascript",
 						Optional:    false,
+						Value:       `function exec (params){return params}`,
 					},
-				},
-				Inputs: map[string]string{
-					"script": `function exec (params){return params}`,
 				},
 				DynamicInput:  true,
 				DynamicOutput: true,
@@ -381,8 +380,9 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "raw",
 				},
-				InputAnchors: []model.NodeInputParam{
+				InputParams: []model.NodeInputParam{
 					{
+						InputType: model.NodeInputTypeAnchor,
 						Name: map[string]string{
 							"zh-CN": "数据",
 						},
@@ -408,8 +408,9 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "select",
 				},
-				InputAnchors: []model.NodeInputParam{
+				InputParams: []model.NodeInputParam{
 					{
+						InputType: model.NodeInputTypeAnchor,
 						Name: map[string]string{
 							"zh-CN": "数据",
 						},
@@ -417,8 +418,6 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 						Type:     "any",
 						Optional: true,
 					},
-				},
-				InputParams: []model.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "Path",
@@ -454,8 +453,9 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "list",
 				},
-				InputAnchors: []model.NodeInputParam{
+				InputParams: []model.NodeInputParam{
 					{
+						InputType: model.NodeInputTypeAnchor,
 						Name: map[string]string{
 							"zh-CN": "数据",
 						},
@@ -490,8 +490,6 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 				},
 				DynamicInput: true,
 				// dynamic input
-				InputAnchors: []model.NodeInputParam{},
-				InputParams:  []model.NodeInputParam{},
 				OutputAnchors: []model.NodeOutputAnchor{
 					{
 						Name: map[string]string{
@@ -522,8 +520,9 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 						Name: map[string]string{
 							"zh-CN": "模板",
 						},
-						Key:  "template",
-						Type: "string",
+						Key:         "template",
+						Type:        "string",
+						DisplayType: "textarea",
 					},
 				},
 				OutputAnchors: []model.NodeOutputAnchor{

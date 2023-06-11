@@ -54,7 +54,6 @@ func (l *LangChain) Components() []model.Component {
 					GoPackage:  model.ComponentGoPackage{},
 					Script:     model.ComponentScript{},
 				},
-				InputAnchors: nil,
 				InputParams: []model.NodeInputParam{
 					{
 						Name: map[string]string{
@@ -89,8 +88,9 @@ func (l *LangChain) Components() []model.Component {
 					CmdType:    model.BuiltInCmd,
 					BuiltinCmd: "langchain_call",
 				},
-				InputAnchors: []model.NodeInputParam{
+				InputParams: []model.NodeInputParam{
 					{
+						InputType: model.NodeInputTypeAnchor,
 						Name: map[string]string{
 							"zh-CN": "LLM",
 						},
@@ -98,6 +98,7 @@ func (l *LangChain) Components() []model.Component {
 						Type: "langchain/llm",
 					},
 					{
+						InputType: model.NodeInputTypeAnchor,
 						Name: map[string]string{
 							"zh-CN": "Prompt",
 						},
@@ -105,7 +106,6 @@ func (l *LangChain) Components() []model.Component {
 						Type: "string",
 					},
 				},
-				InputParams: []model.NodeInputParam{},
 				OutputAnchors: []model.NodeOutputAnchor{
 					{
 						Key:  "default",
