@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/spf13/cast"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/pkg/modules"
@@ -15,6 +16,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type Builtin struct {
@@ -276,16 +278,58 @@ func (b *Builtin) Components() []model.Component {
 				OutputAnchors: []model.NodeOutputAnchor{
 					{
 						Name: map[string]string{
+							"zh-CN": "Item",
+						},
+						Key:  "item",
+						Type: "any",
+					},
+					{
+						Name: map[string]string{
 							"zh-CN": "Default",
 						},
 						Key:  "default",
 						Type: "any",
 					},
+				},
+			},
+		},
+		{
+			Id:       0,
+			Type:     "sleep",
+			Category: "logic",
+			Data: model.ComponentData{
+				Name: map[string]string{
+					"zh-CN": "Sleep",
+				},
+				Source: model.ComponentSource{
+					CmdType:    model.BuiltInCmd,
+					BuiltinCmd: "sleep",
+					GoPackage:  model.ComponentGoPackage{},
+					Script:     model.ComponentScript{},
+				},
+				InputParams: []model.NodeInputParam{
 					{
 						Name: map[string]string{
-							"zh-CN": "Item",
+							"zh-CN": "Second",
 						},
-						Key:  "item",
+						Key:  "second",
+						Type: "number",
+					},
+					{
+						InputType: model.NodeInputTypeAnchor,
+						Name: map[string]string{
+							"zh-CN": "Data",
+						},
+						Key:  "data",
+						Type: "any",
+					},
+				},
+				OutputAnchors: []model.NodeOutputAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Default",
+						},
+						Key:  "default",
 						Type: "any",
 					},
 				},
@@ -541,6 +585,14 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 		// 原封不动的返回节点入参
 		"raw": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			//log.Infof("raw params: %+v", params)
+			return params, nil
+		}),
+		"sleep": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+			//log.Infof("raw params: %+v", params)
+			s := cast.ToInt(params["second"])
+			if s != 0 {
+				time.Sleep(time.Duration(s) * time.Second)
+			}
 			return params, nil
 		}),
 		"record": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
