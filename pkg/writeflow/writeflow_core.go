@@ -37,10 +37,11 @@ const (
 )
 
 type NodeInput struct {
-	Key     string
-	Type    NodeInputType // anchor, literal
-	Literal interface{}   // 字面量
-	List    bool
+	Key      string
+	Type     NodeInputType // anchor, literal
+	Literal  interface{}   // 字面量
+	List     bool
+	Required bool
 
 	Anchors []model.NodeAnchorTarget
 }
@@ -143,43 +144,24 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 		var inputs []NodeInput
 		for _, input := range node.Data.InputParams {
 			switch input.InputType {
-
 			case model.NodeInputTypeAnchor:
 				anchors, list := node.Data.GetInputAnchorValue(input.Key)
-				if len(anchors) == 0 && !input.Optional {
-					return nil, fmt.Errorf("input '%v' for node '%v' is not defined", input.Key, node.Id)
-				}
-
 				inputs = append(inputs, NodeInput{
-					Key:     input.Key,
-					Type:    "anchor",
-					Literal: "",
-					Anchors: anchors,
-					List:    list,
+					Key:      input.Key,
+					Type:     NodeInputAnchor,
+					Literal:  "",
+					Anchors:  anchors,
+					List:     list,
+					Required: !input.Optional,
 				})
 			default:
 				inputs = append(inputs, NodeInput{
-					Key:     input.Key,
-					Type:    NodeInputLiteral,
-					Literal: node.Data.GetInputValue(input.Key),
+					Key:      input.Key,
+					Type:     NodeInputLiteral,
+					Literal:  node.Data.GetInputValue(input.Key),
+					Required: !input.Optional,
 				})
 			}
-		}
-
-		// 废弃后可以删掉
-		for _, input := range node.Data.InputAnchors {
-			anchors, list := node.Data.GetInputAnchorValue(input.Key)
-			if len(anchors) == 0 && !input.Optional {
-				return nil, fmt.Errorf("input '%v' for node '%v' is not defined", input.Key, node.Id)
-			}
-
-			inputs = append(inputs, NodeInput{
-				Key:     input.Key,
-				Type:    "anchor",
-				Literal: "",
-				Anchors: anchors,
-				List:    list,
-			})
 		}
 
 		cmdName := node.Type
@@ -196,7 +178,7 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 			var err error
 			cmder, err = cmd.NewGoScript(nil, "", script)
 			if err != nil {
-				return nil, fmt.Errorf("parse node '%v' script '%v' error: %v", node.Id, script, err)
+				return nil, NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
 			}
 		case model.JavaScriptCmd:
 			key := node.Data.Source.Script.InputKey
@@ -207,7 +189,7 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 			var err error
 			cmder, err = cmd.NewJavaScript(script)
 			if err != nil {
-				return nil, fmt.Errorf("parse node '%v' script '%v' error: %v", node.Id, script, err)
+				return nil, NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
 			}
 		}
 		if node.Data.Source.CmdType == model.NothingCmd {
@@ -414,36 +396,14 @@ var ErrNodeUnreachable = errors.New("node unreachable")
 // 如果让 Cmd 处理懒值会导致 Cmd 的编写逻辑变得复杂，同时还需要处理函数执行异常，不方便用户编写。
 // 而逻辑分支相对固定，可以内置实现。
 
-func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNodeRun func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
+func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNodeStatusChange func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
 	start := time.Now()
 	defer func() {
-		if onNodeRun != nil {
+		if onNodeStatusChange != nil {
 			if err != nil {
-				if errors.Is(err, ErrNodeUnreachable) || err.Error() == ErrNodeUnreachable.Error() {
-					onNodeRun(model.NodeStatus{
-						NodeId: nodeId,
-						Status: model.StatusUnreachable,
-						RunAt:  start,
-						EndAt:  time.Now(),
-					})
-					err = nil
-				} else {
-					onNodeRun(model.NodeStatus{
-						NodeId: nodeId,
-						Status: model.StatusFailed,
-						Error:  err.Error(),
-						RunAt:  start,
-						EndAt:  time.Now(),
-					})
-				}
+				onNodeStatusChange(model.NewNodeStatus(nodeId, model.StatusFailed, err.Error(), nil, start, time.Now()))
 			} else {
-				onNodeRun(model.NodeStatus{
-					NodeId: nodeId,
-					Status: model.StatusSuccess,
-					Result: rsp,
-					RunAt:  start,
-					EndAt:  time.Now(),
-				})
+				onNodeStatusChange(model.NewNodeStatus(nodeId, model.StatusSuccess, "", rsp, start, time.Now()))
 			}
 		} else {
 			if err == ErrNodeUnreachable || err.Error() == ErrNodeUnreachable.Error() {
@@ -460,10 +420,10 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		case NodeInputLiteral:
 			return i.Literal, nil
 		case NodeInputAnchor:
-			if len(i.Anchors) == 0 {
-				// 如果节点 id 为空，则说明是非必填字段。
-				return nil, nil
+			if len(i.Anchors) == 0 && i.Required {
+				return nil, NewExecNodeError(fmt.Errorf("params '%v' is required", i.Key), nodeId)
 			}
+
 			var values []interface{}
 
 			for _, i := range i.Anchors {
@@ -480,7 +440,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 				if ok && !nocache {
 					values = append(values, v)
 				} else {
-					rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeRun)
+					rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeStatusChange)
 					if err != nil {
 						f.keyLock.Unlock(lockKey)
 						return nil, err
@@ -639,10 +599,10 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		if cmdName == "" {
 			return nil, NewExecNodeError(fmt.Errorf("cmd is not defined"), nodeDef.Id)
 		}
-		c := nodeDef.BuiltCmd
-		if c == nil {
+		cmder := nodeDef.BuiltCmd
+		if cmder == nil {
 			var ok bool
-			c, ok = f.cmd[cmdName]
+			cmder, ok = f.cmd[cmdName]
 			if !ok {
 				if cmdName == model.NothingCmd {
 					// 如果不需要执行任何命令，则直接返回 input
@@ -653,18 +613,11 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		}
 
 		// 只有自定义 cmd 才需要报告 running 状态，特殊的 _for, _switch 不需要。
-		if onNodeRun != nil {
-			onNodeRun(model.NodeStatus{
-				NodeId: nodeId,
-				Status: model.StatusRunning,
-				Error:  "",
-				Result: nil,
-				RunAt:  start,
-				EndAt:  time.Time{},
-			})
+		if onNodeStatusChange != nil {
+			onNodeStatusChange(model.NewNodeStatus(nodeId, model.StatusRunning, "", nil, start, time.Time{}))
 		}
 
-		rsp, err = c.Exec(WithInputKeys(ctx, inputKeys), dependValue)
+		rsp, err = HandlePanicCmd(cmder).Exec(WithInputKeys(ctx, inputKeys), dependValue)
 		if err != nil {
 			return nil, NewExecNodeError(err, nodeDef.Id)
 		}

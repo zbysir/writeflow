@@ -2,6 +2,7 @@ package writeflow
 
 import (
 	"context"
+	"fmt"
 	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/pkg/modules"
 	"github.com/zbysir/writeflow/pkg/schema"
@@ -100,4 +101,22 @@ func (w *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, initParams map[str
 
 func (w *WriteFlow) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (status chan *model.NodeStatus, err error) {
 	return w.core.ExecFlowAsync(ctx, flow, initParams, parallel)
+}
+
+type panicCmd struct {
+	i schema.CMDer
+}
+
+func (p *panicCmd) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("cmd panic: %v", e)
+		}
+	}()
+
+	return p.i.Exec(ctx, params)
+}
+
+func HandlePanicCmd(der schema.CMDer) schema.CMDer {
+	return &panicCmd{i: der}
 }

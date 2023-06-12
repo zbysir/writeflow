@@ -12,6 +12,7 @@ import (
 	"github.com/zbysir/writeflow/pkg/modules/builtin"
 	"github.com/zbysir/writeflow/pkg/modules/langchain"
 	"github.com/zbysir/writeflow/pkg/writeflow"
+	"time"
 )
 
 type Flow struct {
@@ -80,8 +81,13 @@ func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map
 	}
 
 	// get status async
+	log.Infof("%s start", runId)
+	start := time.Now()
 	go func() {
-		log.Infof("%s start", runId)
+		defer func() {
+			log.Infof("%s end, spend: %s", runId, time.Now().Sub(start))
+		}()
+
 		for r := range status {
 			bs, err := r.Json()
 			if err != nil {

@@ -1,7 +1,6 @@
 package model
 
 import (
-	"strings"
 	"time"
 )
 
@@ -177,32 +176,8 @@ func (d *ComponentData) GetInputValue(key string) string {
 
 func (d *ComponentData) GetInputAnchorValue(key string) ([]NodeAnchorTarget, bool) {
 	for _, v := range d.InputParams {
-		if v.Key == key {
+		if v.Key == key && v.InputType == NodeInputTypeAnchor {
 			return v.Anchors, v.List
-		}
-	}
-
-	// InputAnchors 废弃后删除
-	for _, v := range d.InputAnchors {
-		if v.Key == key {
-			if len(v.Anchors) != 0 {
-				return v.Anchors, v.List
-			}
-
-			ss := strings.Split(d.Inputs[key], ".")
-			var nodeId string
-			var outputKey string
-			if len(ss) > 1 {
-				nodeId = ss[0]
-				outputKey = ss[1]
-			}
-
-			return []NodeAnchorTarget{
-				{
-					NodeId:    nodeId,
-					OutputKey: outputKey,
-				},
-			}, false
 		}
 	}
 

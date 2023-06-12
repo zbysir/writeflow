@@ -16,7 +16,6 @@ import (
 type WsHub struct {
 	conns   map[string]*websocket.Conn
 	history *ttlpool.Pool[[]Message]
-	//history map[string][]Message // key -> messages, TODO TTL
 	l sync.Mutex
 }
 
@@ -52,9 +51,7 @@ func (h *WsHub) Add(key string, conn *websocket.Conn) {
 	messages, _ := h.history.Get(key)
 	for _, v := range messages {
 		if bytes.Equal(v, EOF) {
-			if o, ok := h.conns[key]; ok {
-				o.Close()
-			}
+			conn.Close()
 			delete(h.conns, key)
 			break
 		}
