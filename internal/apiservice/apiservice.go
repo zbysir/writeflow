@@ -1,21 +1,30 @@
 package apiservice
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	writeflowui "github.com/zbysir/writeflow-ui"
 	"github.com/zbysir/writeflow/internal/pkg/auth"
 	"github.com/zbysir/writeflow/internal/pkg/config"
+	"github.com/zbysir/writeflow/internal/pkg/http_file_server"
 	"github.com/zbysir/writeflow/internal/pkg/httpsrv"
 	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/internal/repo"
 	"github.com/zbysir/writeflow/internal/usecase"
+	"io"
+	"io/fs"
 	"net/http"
+	"path/filepath"
+	"strings"
 )
 
 type Config struct {
-	Secret string // 单机部署，输入 secret 就能使用
+	Secret        string // 单机部署，输入 secret 就能使用
+	ListenAddress string
 }
 type ApiService struct {
 	config Config
@@ -98,13 +107,108 @@ func Auth(secret string) gin.HandlerFunc {
 	}
 }
 
-// localhost:9090/api/file/tree
+type FsHook struct {
+	i       fs.FS
+	context []byte
+}
+
+func NewFsHook(i fs.FS, context []byte) *FsHook {
+	return &FsHook{i: i, context: context}
+}
+
+type FileHook struct {
+	i             fs.File
+	buf           []byte
+	injectContext []byte
+}
+
+func NewFileHook(i fs.File, injectContext []byte) *FileHook {
+	bs, err := io.ReadAll(i)
+	if err != nil {
+		log.Infof("%v", err)
+		return &FileHook{i: i, injectContext: injectContext}
+	}
+
+	bs = bytes.ReplaceAll(bs, []byte("<head>"), append([]byte("<head>"), injectContext...))
+
+	return &FileHook{i: i, buf: bs}
+}
+
+type FileInfoHook struct {
+	fs.FileInfo
+	size int
+}
+
+func (f *FileInfoHook) Size() int64 {
+	return int64(f.size)
+}
+
+func (f *FileHook) Stat() (fs.FileInfo, error) {
+	info, err := f.i.Stat()
+	if err != nil {
+		return nil, err
+	}
+	return &FileInfoHook{FileInfo: info, size: len(f.buf)}, nil
+}
+
+func (f *FileHook) Read(ibytes []byte) (int, error) {
+	copy(ibytes, f.buf)
+	l := 0
+	if len(f.buf) > len(ibytes) {
+		f.buf = f.buf[len(ibytes):]
+		l = len(ibytes)
+	} else {
+		l = len(f.buf)
+		f.buf = nil
+	}
+
+	return l, nil
+}
+
+func (f *FileHook) Close() error {
+	return f.i.Close()
+}
+
+func (f *FsHook) Open(name string) (fs.File, error) {
+	i, err := f.i.Open(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if name == "index.html" {
+		return NewFileHook(i, f.context), nil
+	}
+
+	return i, err
+}
+
 func (a *ApiService) Run(ctx context.Context, addr string) (err error) {
 	if !config.IsDebug() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.Default()
 	r.Use(Cors())
+
+	apiHost := fmt.Sprintf("http://localhost%s", a.config.ListenAddress)
+	wsHost := fmt.Sprintf("ws://localhost%s", a.config.ListenAddress)
+
+	r.NoRoute(func(c *gin.Context) {
+		d, _ := fs.Sub(writeflowui.Dist, "dist")
+
+		d = NewFsHook(d, []byte(fmt.Sprintf(`<script>window.__service_host__ = {"api": %q, "ws": %q} </script>`, apiHost, wsHost)))
+		// try file
+		p := strings.TrimPrefix(c.Request.URL.Path, "/")
+		_, err := d.Open(p)
+		if err != nil {
+			_, err = d.Open(filepath.Join(p, "index.html"))
+			if err != nil {
+				// fallback to index.html
+				c.Request.URL.Path = ""
+			}
+		}
+
+		http_file_server.WrapEtagHandler(http.FileServer(http.FS(d))).ServeHTTP(c.Writer, c.Request)
+	})
 
 	var api = r.Group("/api").Use(ErrorHandler(), Cors())
 

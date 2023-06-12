@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
+	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"sort"
 	"sync"
@@ -191,10 +192,7 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 			if err != nil {
 				return nil, NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
 			}
-		}
-		if node.Data.Source.CmdType == model.NothingCmd {
-			cmdName = model.NothingCmd
-		} else if node.Data.Source.BuiltinCmd != "" {
+		case model.BuiltInCmd:
 			cmdName = node.Data.Source.BuiltinCmd
 		}
 
@@ -412,7 +410,11 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		}
 	}()
 
-	nodeDef := f.flowDef.Nodes[nodeId]
+	nodeDef, ok := f.flowDef.Nodes[nodeId]
+	if !ok {
+		// 可能是前段没有删除干净，所以有空，先忽略错误
+		return nil, nil
+	}
 	inputs := nodeDef.Inputs
 
 	var calcInput = func(i NodeInput, nocache bool) (interface{}, error) {
@@ -433,8 +435,11 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 				}
 
 				// 防止缓存穿透
-				lockKey := fmt.Sprintf("%s", i.NodeId)
-				f.keyLock.Lock(lockKey)
+				//lockKey := fmt.Sprintf("%s", i.NodeId)
+
+				// todo 这里有递归调用，有死锁的问题，暂时去掉
+				//log.Infof("----lock %s", lockKey)
+				//f.keyLock.Lock(lockKey)
 
 				v, ok = f.getRspCache(i.NodeId, i.OutputKey)
 				if ok && !nocache {
@@ -442,13 +447,15 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 				} else {
 					rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeStatusChange)
 					if err != nil {
-						f.keyLock.Unlock(lockKey)
+						//log.Infof("----Unlock %s", lockKey)
+						//f.keyLock.Unlock(lockKey)
 						return nil, err
 					}
 					values = append(values, rsps[i.OutputKey])
 
 					f.setRspCache(i.NodeId, rsps)
-					f.keyLock.Unlock(lockKey)
+					//log.Infof("----Unlock %s", lockKey)
+					//f.keyLock.Unlock(lockKey)
 				}
 			}
 
@@ -585,6 +592,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			default:
 				r, err := calcInput(i, nocache)
 				if err != nil {
+					log.Errorf("calcInput %v error: %v", nodeId, err)
 					return nil, err
 				}
 				dependValue[i.Key] = r

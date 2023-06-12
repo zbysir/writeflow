@@ -1,6 +1,8 @@
 package model
 
 import (
+	"github.com/samber/lo"
+	"strings"
 	"time"
 )
 
@@ -16,6 +18,68 @@ type Flow struct {
 	Graph       Graph     `json:"graph"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (f *Flow) Upgrade() *Flow {
+	return &Flow{
+		Id:          f.Id,
+		Name:        f.Name,
+		Description: f.Description,
+		Graph: Graph{
+			Nodes: lo.Map(f.Graph.Nodes, func(k Node, i int) Node {
+				params := append(k.Data.InputParams)
+				for _, a := range k.Data.InputAnchors {
+					a.InputType = "anchor"
+					params = append(params, a)
+				}
+
+				for i, p := range params {
+					if p.InputType == "anchor" {
+						ss := strings.Split(k.Data.Inputs[p.Key], ".")
+						if len(ss) == 2 {
+							nodeId := ss[0]
+							key := ss[1]
+							params[i].Anchors = []NodeAnchorTarget{
+								{
+									NodeId:    nodeId,
+									OutputKey: key,
+								},
+							}
+						}
+					} else {
+						if v, ok := k.Data.Inputs[p.Key]; ok {
+							params[i].Value = v
+						}
+					}
+				}
+
+				return Node{
+					Id:       k.Id,
+					Width:    k.Width,
+					Height:   k.Height,
+					Position: k.Position,
+					Type:     k.Type,
+					Data: NodeData{
+						Name:          k.Data.Name,
+						Icon:          k.Data.Icon,
+						Description:   k.Data.Description,
+						Source:        k.Data.Source,
+						DynamicInput:  k.Data.DynamicInput,
+						DynamicOutput: k.Data.DynamicOutput,
+						CanDisable:    k.Data.CanDisable,
+						InputAnchors:  nil,
+						InputParams:   params,
+						OutputAnchors: k.Data.OutputAnchors,
+						Inputs:        nil,
+						Config:        k.Data.Config,
+					},
+				}
+			}),
+			OutputNodeId: "",
+		},
+		CreatedAt: f.CreatedAt,
+		UpdatedAt: f.UpdatedAt,
+	}
 }
 
 type Locales map[string]string
@@ -149,9 +213,8 @@ type ComponentData struct {
 	DynamicOutput bool            `json:"dynamic_output"` // 输出是否和动态输入一样
 	CanDisable    bool            `json:"can_disable"`    // 是否可以禁用，如果禁用则不会执行，可以禁用的组件上会有一个开关，当关闭时需要填写一个 key 为 _enable 的输入。
 	// InputAnchors 将要废弃
-	InputAnchors  []NodeInputParam   `json:"input_anchors,omitempty"` // 输入锚点定义
-	InputParams   []NodeInputParam   `json:"input_params,omitempty"`  // 字面参数定义
-	ForItem       ForItemNode        `json:"for_item,omitempty"`
+	InputAnchors  []NodeInputParam   `json:"input_anchors,omitempty"`  // 输入锚点定义
+	InputParams   []NodeInputParam   `json:"input_params,omitempty"`   // 字面参数定义
 	OutputAnchors []NodeOutputAnchor `json:"output_anchors,omitempty"` // 输出锚点定义
 	// Inputs 将要废弃
 	Inputs map[string]string `json:"inputs"` // key -> response (node_id.output_key)

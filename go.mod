@@ -4,18 +4,23 @@ go 1.20
 
 require (
 	github.com/docker/libkv v0.2.1
+	github.com/dop251/goja v0.0.0-20230605162241-28ee0ee714f3
 	github.com/gin-gonic/gin v1.9.0
 	github.com/go-git/go-billy/v5 v5.4.1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/samber/lo v1.38.1
+	github.com/sjy3/go-keylock v0.0.0-20210305015907-e987e967d5a4
+	github.com/spf13/cast v1.5.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.2
 	github.com/thoas/go-funk v0.9.3
 	github.com/tmc/langchaingo v0.0.0-20230522045238-97426d911826
 	github.com/traefik/yaegi v0.15.1
+	github.com/zbysir/gojsx v0.4.8
+	github.com/zbysir/writeflow-ui v0.0.0-20230612112006-b60877e414e7
 	go.uber.org/zap v1.21.0
 )
 
@@ -25,7 +30,6 @@ require (
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
-	github.com/dop251/goja v0.0.0-20230605162241-28ee0ee714f3 // indirect
 	github.com/evanw/esbuild v0.14.51 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -48,9 +52,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/sjy3/go-keylock v0.0.0-20210305015907-e987e967d5a4 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
-	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
@@ -60,7 +62,6 @@ require (
 	github.com/ugorji/go/codec v1.2.9 // indirect
 	github.com/yuin/goldmark v1.5.3 // indirect
 	github.com/yuin/goldmark-meta v1.1.0 // indirect
-	github.com/zbysir/gojsx v0.4.8 // indirect
 	go.abhg.dev/goldmark/mermaid v0.4.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect

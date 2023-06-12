@@ -60,7 +60,7 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 			ctx.JSON(404, "not found")
 			return
 		}
-
+		//cs = cs.Upgrade()
 		ctx.JSON(200, cs)
 	})
 
