@@ -36,7 +36,7 @@ func NewNodeStatus(nodeId string, status Status, error string, result map[string
 		RunAt:  runAt,
 		EndAt:  endAt}
 
-	if s.EndAt.IsZero() {
+	if !s.EndAt.IsZero() {
 		s.Spend = s.EndAt.Sub(s.RunAt).String()
 	}
 	return s
