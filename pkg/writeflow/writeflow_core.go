@@ -451,6 +451,9 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 						//f.keyLock.Unlock(lockKey)
 						return nil, err
 					}
+					if rsps == nil {
+						continue
+					}
 					values = append(values, rsps[i.OutputKey])
 
 					f.setRspCache(i.NodeId, rsps)
@@ -461,8 +464,10 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 
 			if i.List {
 				return values, nil
-			} else {
+			} else if len(values) >= 1 {
 				return values[0], nil
+			} else {
+				return nil, nil
 			}
 		}
 
@@ -595,7 +600,9 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					log.Errorf("calcInput %v error: %v", nodeId, err)
 					return nil, err
 				}
+				dependValueLock.Lock()
 				dependValue[i.Key] = r
+				dependValueLock.Unlock()
 			}
 		}
 		wg.Wait()

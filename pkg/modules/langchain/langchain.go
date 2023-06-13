@@ -2,6 +2,7 @@ package langchain
 
 import (
 	"context"
+	"fmt"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/zbysir/writeflow/internal/cmd"
@@ -130,7 +131,11 @@ func (l *LangChain) Cmd() map[string]schema.CMDer {
 		}),
 		"langchain_call": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			llm := params["llm"].(llms.LLM)
-			prompt := params["prompt"].(string)
+			promptI := params["prompt"]
+			if promptI == nil {
+				return nil, fmt.Errorf("prompt is nil")
+			}
+			prompt := promptI.(string)
 			s, err := llm.Call(ctx, prompt)
 			if err != nil {
 				return nil, err

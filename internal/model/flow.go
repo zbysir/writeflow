@@ -21,6 +21,10 @@ type Flow struct {
 }
 
 func (f *Flow) Upgrade() *Flow {
+	existNodes := make(map[string]bool)
+	for _, node := range f.Graph.Nodes {
+		existNodes[node.Id] = true
+	}
 	return &Flow{
 		Id:          f.Id,
 		Name:        f.Name,
@@ -51,6 +55,17 @@ func (f *Flow) Upgrade() *Flow {
 							params[i].Value = v
 						}
 					}
+				}
+
+				// remove anchors that not exist
+				for i, p := range params {
+					var a []NodeAnchorTarget
+					for _, v := range p.Anchors {
+						if _, ok := existNodes[v.NodeId]; ok {
+							a = append(a, v)
+						}
+					}
+					params[i].Anchors = a
 				}
 
 				return Node{
