@@ -62,11 +62,12 @@ Cmd 是 Component 的运行命令，支持 Golang 代码、远端。
 
 ## 计划
 - [ ] 可视化 UI: [writeflow-ui](https://github.com/zbysir/writeflow-ui)
-  - [x] 流程配置 - reactflow
-  - [ ] 运行状态
+  - [x] 流程配置
+  - [x] 运行状态
 - [ ] 分布式调度，支持重启恢复，持久化；这不是最优先级的，因为这个项目的编排能力是我最感兴趣的，我要优先实现它。
 - 逻辑分支
   - [x] Switch
   - [x] For
 - 并行执行
   - [x] 并行执行
+- [x] 组件商店
