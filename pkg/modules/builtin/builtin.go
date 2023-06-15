@@ -437,6 +437,16 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 				},
 				InputParams: []writeflow.NodeInputParam{
 					{
+						InputType: writeflow.NodeInputLiteral,
+						Name: map[string]string{
+							"zh-CN": "Enable",
+						},
+						Key:      "_enable",
+						Type:     "bool",
+						Value:    true,
+						Optional: true,
+					},
+					{
 						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "数据",

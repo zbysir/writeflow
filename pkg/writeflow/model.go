@@ -2,6 +2,7 @@ package writeflow
 
 import (
 	"encoding/json"
+	"github.com/spf13/cast"
 	"time"
 )
 
@@ -43,12 +44,12 @@ type NodeInputParam struct {
 	Name        map[string]string  `json:"name"`
 	Key         string             `json:"key"`
 	InputType   NodeInputType      `json:"input_type"`
-	Type        string             `json:"type"`               // 数据模型，如 string / int / json / any
+	Type        string             `json:"type"`               // 数据模型，如 string / int / json / any / bool
 	DisplayType string             `json:"display_type"`       // 显示类型，如 code / input / textarea / select / checkbox / radio / password
 	Options     []string           `json:"options"`            // 如果是 select / checkbox / radio，需要提供 options
 	Optional    bool               `json:"optional,omitempty"` // 是否是可选的
 	Dynamic     bool               `json:"dynamic,omitempty"`  // 是否是动态输入，是动态输入才能删除。
-	Value       string             `json:"value"`              // 输入的字面量
+	Value       interface{}        `json:"value"`              // 输入的字面量
 	List        bool               `json:"list"`               // 支持链接多个输入
 	Anchors     []NodeAnchorTarget `json:"anchors"`
 }
@@ -60,7 +61,6 @@ type ComponentData struct {
 	Source        ComponentSource    `json:"source"`
 	DynamicInput  bool               `json:"dynamic_input"`            // 是否可以添加动态输入
 	DynamicOutput bool               `json:"dynamic_output"`           // 输出是否和动态输入一样
-	CanDisable    bool               `json:"can_disable"`              // 是否可以禁用，如果禁用则不会执行，可以禁用的组件上会有一个开关，当关闭时需要填写一个 key 为 _enable 的输入。
 	InputParams   []NodeInputParam   `json:"input_params,omitempty"`   // 字面参数定义
 	OutputAnchors []NodeOutputAnchor `json:"output_anchors,omitempty"` // 输出锚点定义
 	Config        ComponentConfig    `json:"config"`
@@ -79,7 +79,7 @@ func (d *ComponentData) GetInputValue(key string) interface{} {
 	for _, v := range d.InputParams {
 		if v.Key == key {
 			if v.DisplayType == "password" {
-				return PasswordString(v.Value)
+				return PasswordString(cast.ToString(v.Value))
 			}
 			return v.Value
 		}

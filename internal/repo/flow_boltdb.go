@@ -7,6 +7,8 @@ import (
 	"github.com/docker/libkv/store"
 	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/pkg/writeflow"
+	"sort"
+	"strconv"
 	"time"
 )
 
@@ -70,6 +72,17 @@ func (b *BoltDBFlow) GetFlowList(ctx context.Context, params GetFlowListParams) 
 		}
 		return nil, 0, err
 	}
+
+	// kv 排序，按照 int 排序，大的在前
+	sort.Slice(kv, func(i, j int) bool {
+		ki, _ := strconv.ParseInt(kv[i].Key, 10, 64)
+		kj, _ := strconv.ParseInt(kv[j].Key, 10, 64)
+		if ki == kj {
+			return kv[i].Key > kv[j].Key
+		}
+
+		return ki > kj
+	})
 
 	for i, item := range kv {
 		if i < params.Offset {

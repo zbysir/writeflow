@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/stretchr/testify/assert"
 	"github.com/zbysir/writeflow/internal/model"
+	"github.com/zbysir/writeflow/pkg/writeflow"
 	"testing"
 )
 
@@ -21,13 +22,13 @@ func TestComponent(t *testing.T) {
 	err = f.CreateComponent(ctx, &model.Component{
 		Type:     "openai",
 		Category: "",
-		Data: model.ComponentData{
+		Data: writeflow.ComponentData{
 			Name:        nil,
 			Icon:        "",
 			Description: nil,
-			Source: model.ComponentSource{
+			Source: writeflow.ComponentSource{
 				CmdType: "",
-				Script:  model.ComponentScript{Source: "script"},
+				Script:  writeflow.ComponentScript{Source: "script"},
 			},
 			InputParams:   nil,
 			OutputAnchors: nil,

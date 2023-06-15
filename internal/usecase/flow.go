@@ -64,6 +64,22 @@ func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]inte
 	return u.RunFlowByDetail(ctx, flow, params, parallel)
 }
 
+func (u *Flow) RunFlowSync(ctx context.Context, flowId int64, params map[string]interface{}, parallel int, outputNodeId string) (rsp map[string]interface{}, err error) {
+	flow, exist, err := u.flowRepo.GetFlowById(ctx, flowId)
+	if err != nil {
+		return nil, err
+	}
+	if !exist {
+		return nil, fmt.Errorf("flow not exist")
+	}
+
+	if outputNodeId != "" {
+		flow.Graph.OutputNodeId = outputNodeId
+	}
+
+	return u.RunFlowByDetailSync(ctx, flow, params, parallel)
+}
+
 func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map[string]interface{}, parallel int) (runId string, err error) {
 	f, err := model.FlowFromModel(flow)
 	if err != nil {
@@ -109,6 +125,15 @@ func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map
 	}()
 
 	return
+}
+
+func (u *Flow) RunFlowByDetailSync(ctx context.Context, flow *model.Flow, params map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
+	f, err := model.FlowFromModel(flow)
+	if err != nil {
+		return nil, err
+	}
+
+	return u.wirteflow.ExecNode(ctx, f, params, parallel)
 }
 
 func (u *Flow) AddWs(key string, conn *websocket.Conn) {

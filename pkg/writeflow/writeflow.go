@@ -97,6 +97,10 @@ func (w *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, initParams map[str
 	return w.core.ExecFlow(ctx, flow, initParams, parallel)
 }
 
+func (w *WriteFlow) ExecNode(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
+	return w.core.ExecNode(ctx, flow, initParams, parallel)
+}
+
 func (w *WriteFlow) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (status chan NodeStatusLog, err error) {
 	return w.core.ExecFlowAsync(ctx, flow, initParams, parallel)
 }

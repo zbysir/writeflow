@@ -14,7 +14,7 @@ func FlowFromModel(m *Flow) (*writeflow.Flow, error) {
 		var inputs []writeflow.NodeInput
 		for _, input := range node.Data.InputParams {
 			switch input.InputType {
-			case NodeInputTypeAnchor:
+			case writeflow.NodeInputAnchor:
 				anchors, list := node.Data.GetInputAnchorValue(input.Key)
 				inputs = append(inputs, writeflow.NodeInput{
 					Key:      input.Key,
@@ -37,9 +37,9 @@ func FlowFromModel(m *Flow) (*writeflow.Flow, error) {
 		cmdName := node.Type
 		var cmder schema.CMDer
 		switch node.Data.Source.CmdType {
-		case NothingCmd:
-			cmdName = NothingCmd
-		case GoScriptCmd:
+		case writeflow.NothingCmd:
+			cmdName = string(writeflow.NothingCmd)
+		case writeflow.GoScriptCmd:
 			var script string
 			if node.Data.Source.Script.Source != "" {
 				script = node.Data.Source.Script.Source
@@ -52,7 +52,7 @@ func FlowFromModel(m *Flow) (*writeflow.Flow, error) {
 			if err != nil {
 				return nil, writeflow.NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
 			}
-		case JavaScriptCmd:
+		case writeflow.JavaScriptCmd:
 			var script string
 			if node.Data.Source.Script.Source != "" {
 				script = node.Data.Source.Script.Source
@@ -65,7 +65,7 @@ func FlowFromModel(m *Flow) (*writeflow.Flow, error) {
 			if err != nil {
 				return nil, writeflow.NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
 			}
-		case BuiltInCmd:
+		case writeflow.BuiltInCmd:
 			cmdName = node.Data.Source.BuiltinCmd
 		}
 

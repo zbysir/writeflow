@@ -188,6 +188,21 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 	return
 }
 
+func (f *WriteFlowCore) ExecNode(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
+	// use params node to get init params
+	f.RegisterCmd("_params", cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+		return initParams, nil
+	}))
+
+	fr := newRunner(f.cmds, flow, parallel)
+	_, ok := flow.Nodes[flow.OutputNodeId]
+	if !ok {
+		return nil, fmt.Errorf("output node %s not found", flow.OutputNodeId)
+	}
+
+	return fr.ExecNode(ctx, flow.OutputNodeId, false, nil)
+}
+
 type runner struct {
 	flowDef     *Flow
 	cmd         map[string]schema.CMDer           // id -> cmder

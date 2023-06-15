@@ -6,10 +6,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/internal/repo"
+	"time"
 )
 
 type IdReq struct {
-	Id int64 `json:"id" form:"id"`
+	Id  int64   `json:"id" form:"id"`
+	Ids []int64 `json:"ids" form:"ids"`
 }
 
 type KeyReq struct {
@@ -17,10 +19,11 @@ type KeyReq struct {
 }
 
 type RunFlowReq struct {
-	Id       int64                  `json:"id"`
-	Params   map[string]interface{} `json:"params"`
-	Graph    *model.Graph           `json:"graph"`
-	Parallel int                    `json:"parallel"`
+	Id           int64                  `json:"id"`
+	Params       map[string]interface{} `json:"params"`
+	Graph        *model.Graph           `json:"graph"`
+	Parallel     int                    `json:"parallel"`
+	OutputNodeId string                 `json:"output_node_id"`
 }
 
 func (a *ApiService) RegisterFlow(router gin.IRoutes) {
@@ -95,6 +98,7 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 
 		ctx.JSON(200, "ok")
 	})
+
 	router.DELETE("/flow", func(ctx *gin.Context) {
 		var params IdReq
 		err := ctx.Bind(&params)
@@ -102,10 +106,16 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 			ctx.Error(err)
 			return
 		}
-		err = a.flowRepo.DeleteFlow(ctx, params.Id)
-		if err != nil {
-			ctx.Error(err)
-			return
+		if params.Id != 0 {
+			params.Ids = append(params.Ids, params.Id)
+		}
+
+		for _, id := range params.Ids {
+			err = a.flowRepo.DeleteFlow(ctx, id)
+			if err != nil {
+				ctx.Error(err)
+				return
+			}
 		}
 
 		ctx.JSON(200, "ok")
@@ -137,6 +147,39 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 				ctx.Error(err)
 				return
 			}
+			ctx.JSON(200, r)
+		}
+	})
+
+	router.POST("/flow/run_sync", func(ctx *gin.Context) {
+		var params RunFlowReq
+		err := ctx.Bind(&params)
+		if err != nil {
+			ctx.Error(err)
+			return
+		}
+		if params.Id == 0 && params.Graph == nil {
+			ctx.Error(fmt.Errorf("id or graph must be set"))
+			return
+		}
+		start := time.Now()
+		if params.Graph != nil {
+			r, err := a.flowUsecase.RunFlowByDetailSync(context.Background(), &model.Flow{
+				Graph: *params.Graph,
+			}, params.Params, params.Parallel)
+			if err != nil {
+				ctx.Error(err)
+				return
+			}
+			ctx.Header("x-spend", fmt.Sprintf("%v", time.Since(start)))
+			ctx.JSON(200, r)
+		} else {
+			r, err := a.flowUsecase.RunFlowSync(context.Background(), params.Id, params.Params, params.Parallel, params.OutputNodeId)
+			if err != nil {
+				ctx.Error(err)
+				return
+			}
+			ctx.Header("x-spend", fmt.Sprintf("%v", time.Since(start)))
 			ctx.JSON(200, r)
 		}
 	})
