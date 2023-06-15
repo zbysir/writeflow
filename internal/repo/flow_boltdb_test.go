@@ -27,9 +27,8 @@ func TestComponent(t *testing.T) {
 			Description: nil,
 			Source: model.ComponentSource{
 				CmdType: "",
-				Script:  model.ComponentScript{InputKey: "script"},
+				Script:  model.ComponentScript{Source: "script"},
 			},
-			InputAnchors:  nil,
 			InputParams:   nil,
 			OutputAnchors: nil,
 		},
@@ -43,7 +42,7 @@ func TestComponent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, "script", cs["openai"].Data.Source.Script.InputKey)
+	assert.Equal(t, "script", cs["openai"].Data.Source.Script.Source)
 
 	cl, total, err := f.GetComponentList(ctx, GetFlowListParams{})
 	if err != nil {

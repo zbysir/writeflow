@@ -8,7 +8,6 @@ import (
 	go_keylock "github.com/sjy3/go-keylock"
 	"github.com/spf13/cast"
 	"github.com/zbysir/writeflow/internal/cmd"
-	"github.com/zbysir/writeflow/internal/model"
 	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"sort"
@@ -44,7 +43,7 @@ type NodeInput struct {
 	List     bool
 	Required bool
 
-	Anchors []model.NodeAnchorTarget
+	Anchors []NodeAnchorTarget
 }
 
 type NodeInputs []NodeInput
@@ -70,7 +69,7 @@ type NodeAnchorTarget struct {
 type Node struct {
 	Id       string
 	Cmd      string
-	BuiltCmd schema.CMDer
+	BuiltCmd schema.CMDer // go script, js script
 	Inputs   NodeInputs
 }
 
@@ -138,81 +137,6 @@ func (d *Flow) UsedComponents() (componentType []string) {
 	return componentType
 }
 
-func FlowFromModel(m *model.Flow) (*Flow, error) {
-	nodes := map[string]Node{}
-
-	for _, node := range m.Graph.Nodes {
-		var inputs []NodeInput
-		for _, input := range node.Data.InputParams {
-			switch input.InputType {
-			case model.NodeInputTypeAnchor:
-				anchors, list := node.Data.GetInputAnchorValue(input.Key)
-				inputs = append(inputs, NodeInput{
-					Key:      input.Key,
-					Type:     NodeInputAnchor,
-					Literal:  "",
-					Anchors:  anchors,
-					List:     list,
-					Required: !input.Optional,
-				})
-			default:
-				inputs = append(inputs, NodeInput{
-					Key:      input.Key,
-					Type:     NodeInputLiteral,
-					Literal:  node.Data.GetInputValue(input.Key),
-					Required: !input.Optional,
-				})
-			}
-		}
-
-		cmdName := node.Type
-		var cmder schema.CMDer
-		switch node.Data.Source.CmdType {
-		case model.NothingCmd:
-			cmdName = model.NothingCmd
-		case model.GoScriptCmd:
-			var script string
-			if node.Data.Source.Script.Source != "" {
-				script = node.Data.Source.Script.Source
-			} else {
-				script = node.Data.GetInputValue("script").(string)
-			}
-
-			var err error
-			cmder, err = cmd.NewGoScript(nil, "", script)
-			if err != nil {
-				return nil, NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
-			}
-		case model.JavaScriptCmd:
-			var script string
-			if node.Data.Source.Script.Source != "" {
-				script = node.Data.Source.Script.Source
-			} else {
-				script = node.Data.GetInputValue("script").(string)
-			}
-
-			var err error
-			cmder, err = cmd.NewJavaScript(script)
-			if err != nil {
-				return nil, NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
-			}
-		case model.BuiltInCmd:
-			cmdName = node.Data.Source.BuiltinCmd
-		}
-
-		nodes[node.Id] = Node{
-			Id:       node.Id,
-			Cmd:      cmdName,
-			BuiltCmd: cmder,
-			Inputs:   inputs,
-		}
-	}
-	return &Flow{
-		Nodes:        nodes,
-		OutputNodeId: m.Graph.GetOutputNodeId(),
-	}, nil
-}
-
 func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -223,7 +147,7 @@ func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map
 	}
 
 	for r := range result {
-		if r.NodeId == flow.OutputNodeId && r.Status == model.StatusSuccess {
+		if r.NodeId == flow.OutputNodeId && r.Status == StatusSuccess {
 			rsp = r.Result
 			break
 		}
@@ -232,7 +156,7 @@ func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map
 	return
 }
 
-func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (results chan *model.NodeStatus, err error) {
+func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (results chan NodeStatusLog, err error) {
 	// use params node to get init params
 	f.RegisterCmd("_params", cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 		return initParams, nil
@@ -241,7 +165,7 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 	fr := newRunner(f.cmds, flow, parallel)
 	rootNodes := flow.Nodes.GetRootNodes()
 
-	results = make(chan *model.NodeStatus, 100)
+	results = make(chan NodeStatusLog, 100)
 	go func() {
 		defer func() {
 			close(results)
@@ -252,8 +176,8 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, _ = fr.ExecNode(ctx, node.Id, false, func(result model.NodeStatus) {
-					results <- &result
+				_, _ = fr.ExecNode(ctx, node.Id, false, func(result NodeStatusLog) {
+					results <- result
 				})
 			}()
 		}
@@ -398,14 +322,14 @@ var ErrNodeUnreachable = errors.New("node unreachable")
 // 如果让 Cmd 处理懒值会导致 Cmd 的编写逻辑变得复杂，同时还需要处理函数执行异常，不方便用户编写。
 // 而逻辑分支相对固定，可以内置实现。
 
-func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNodeStatusChange func(result model.NodeStatus)) (rsp map[string]interface{}, err error) {
+func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNodeStatusChange func(result NodeStatusLog)) (rsp map[string]interface{}, err error) {
 	start := time.Now()
 	defer func() {
 		if onNodeStatusChange != nil {
 			if err != nil {
-				onNodeStatusChange(model.NewNodeStatus(nodeId, model.StatusFailed, err.Error(), nil, start, time.Now()))
+				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), nil, start, time.Now()))
 			} else {
-				onNodeStatusChange(model.NewNodeStatus(nodeId, model.StatusSuccess, "", rsp, start, time.Now()))
+				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusSuccess, "", rsp, start, time.Now()))
 			}
 		} else {
 			if err == ErrNodeUnreachable || err.Error() == ErrNodeUnreachable.Error() {
@@ -623,7 +547,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			var ok bool
 			cmder, ok = f.cmd[cmdName]
 			if !ok {
-				if cmdName == model.NothingCmd {
+				if cmdName == "nothing" {
 					// 如果不需要执行任何命令，则直接返回 input
 					return dependValue, nil
 				}
@@ -633,7 +557,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 
 		// 只有自定义 cmd 才需要报告 running 状态，特殊的 _for, _switch 不需要。
 		if onNodeStatusChange != nil {
-			onNodeStatusChange(model.NewNodeStatus(nodeId, model.StatusRunning, "", nil, start, time.Time{}))
+			onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", nil, start, time.Time{}))
 		}
 
 		rsp, err = HandlePanicCmd(cmder).Exec(WithInputKeys(ctx, inputKeys), dependValue)

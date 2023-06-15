@@ -93,7 +93,7 @@ func (c *Client) createChat(ctx context.Context, payload *ChatRequest) (*ChatRes
 	defer r.Body.Close()
 
 	b, _ := io.ReadAll(r.Body)
-	log.Infof("api res: %s", b)
+	log.Infof("openai response: %s", b)
 	// Parse response
 	var response ChatResponse
 	err = json.Unmarshal(b, &response)

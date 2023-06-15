@@ -5,12 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/zbysir/writeflow/internal/cmd"
-	"github.com/zbysir/writeflow/internal/model"
 	llms2 "github.com/zbysir/writeflow/internal/pkg/langchaingo/llms"
 	openai2 "github.com/zbysir/writeflow/internal/pkg/langchaingo/llms/openai"
 	schema2 "github.com/zbysir/writeflow/internal/pkg/langchaingo/schema"
-	"github.com/zbysir/writeflow/pkg/modules"
 	"github.com/zbysir/writeflow/pkg/schema"
+	"github.com/zbysir/writeflow/pkg/writeflow"
 	"reflect"
 )
 
@@ -21,14 +20,14 @@ func NewLangChain() *LangChain {
 	return &LangChain{}
 }
 
-func (l *LangChain) Info() modules.ModuleInfo {
-	return modules.ModuleInfo{
+func (l *LangChain) Info() writeflow.ModuleInfo {
+	return writeflow.ModuleInfo{
 		NameSpace: "langchain",
 	}
 }
 
-func (l *LangChain) Categories() []model.Category {
-	return []model.Category{
+func (l *LangChain) Categories() []writeflow.Category {
+	return []writeflow.Category{
 		{
 			Key: "llm",
 			Name: map[string]string{
@@ -39,25 +38,23 @@ func (l *LangChain) Categories() []model.Category {
 	}
 }
 
-func (l *LangChain) Components() []model.Component {
-	return []model.Component{
+func (l *LangChain) Components() []writeflow.Component {
+	return []writeflow.Component{
 		{
 			Id:       0,
 			Type:     "new_openai",
 			Category: "llm",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "OpenAI",
 				},
 				Icon:        "",
 				Description: map[string]string{},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "new_openai",
-					GoPackage:  model.ComponentGoPackage{},
-					Script:     model.ComponentScript{},
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "ApiKey",
@@ -67,7 +64,7 @@ func (l *LangChain) Components() []model.Component {
 						Optional: false,
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "Default",
@@ -81,19 +78,19 @@ func (l *LangChain) Components() []model.Component {
 		{
 			Type:     "langchain_call",
 			Category: "llm",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "LangChain",
 				},
 				Icon:        "",
 				Description: map[string]string{},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "langchain_call",
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "LLM",
 						},
@@ -101,7 +98,7 @@ func (l *LangChain) Components() []model.Component {
 						Type: "langchain/llm",
 					},
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "Functions",
 						},
@@ -110,7 +107,7 @@ func (l *LangChain) Components() []model.Component {
 						Optional: true,
 					},
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "Prompt",
 						},
@@ -118,7 +115,7 @@ func (l *LangChain) Components() []model.Component {
 						Type: "string",
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Key:  "default",
 						Type: "string",
@@ -177,4 +174,4 @@ func (l *LangChain) GoSymbols() map[string]map[string]reflect.Value {
 	return nil
 }
 
-var _ modules.Module = (*LangChain)(nil)
+var _ writeflow.Module = (*LangChain)(nil)

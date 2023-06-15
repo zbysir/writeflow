@@ -1,54 +1,83 @@
 package model
 
 import (
-	"encoding/json"
-	"time"
+	"fmt"
+	"github.com/zbysir/writeflow/internal/cmd"
+	"github.com/zbysir/writeflow/pkg/schema"
+	"github.com/zbysir/writeflow/pkg/writeflow"
 )
 
-type Status = string
+func FlowFromModel(m *Flow) (*writeflow.Flow, error) {
+	nodes := map[string]writeflow.Node{}
 
-const (
-	StatusRunning     Status = "running"
-	StatusSuccess     Status = "success"
-	StatusFailed      Status = "failed"
-	StatusPending     Status = "pending"
-	StatusUnreachable Status = "unreachable" // 被 if 分支忽略
-)
+	for _, node := range m.Graph.Nodes {
+		var inputs []writeflow.NodeInput
+		for _, input := range node.Data.InputParams {
+			switch input.InputType {
+			case NodeInputTypeAnchor:
+				anchors, list := node.Data.GetInputAnchorValue(input.Key)
+				inputs = append(inputs, writeflow.NodeInput{
+					Key:      input.Key,
+					Type:     writeflow.NodeInputAnchor,
+					Literal:  "",
+					Anchors:  anchors,
+					List:     list,
+					Required: !input.Optional,
+				})
+			default:
+				inputs = append(inputs, writeflow.NodeInput{
+					Key:      input.Key,
+					Type:     writeflow.NodeInputLiteral,
+					Literal:  node.Data.GetInputValue(input.Key),
+					Required: !input.Optional,
+				})
+			}
+		}
 
-// NodeStatus save node run result
-type NodeStatus struct {
-	NodeId string `json:"node_id"`
-	Status Status `json:"status"`
-	// todo result has can't marshal type
-	Error  string                 `json:"error,omitempty"`
-	Result map[string]interface{} `json:"result,omitempty"`
-	RunAt  time.Time              `json:"run_at"`
-	EndAt  time.Time              `json:"end_at,omitempty"`
-	Spend  string                 `json:"spend,omitempty"`
-}
+		cmdName := node.Type
+		var cmder schema.CMDer
+		switch node.Data.Source.CmdType {
+		case NothingCmd:
+			cmdName = NothingCmd
+		case GoScriptCmd:
+			var script string
+			if node.Data.Source.Script.Source != "" {
+				script = node.Data.Source.Script.Source
+			} else {
+				script = node.Data.GetInputValue("script").(string)
+			}
 
-func NewNodeStatus(nodeId string, status Status, error string, result map[string]interface{}, runAt time.Time, endAt time.Time) NodeStatus {
-	s := NodeStatus{
-		NodeId: nodeId,
-		Status: status,
-		Error:  error,
-		Result: result,
-		RunAt:  runAt,
-		EndAt:  endAt}
+			var err error
+			cmder, err = cmd.NewGoScript(nil, "", script)
+			if err != nil {
+				return nil, writeflow.NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
+			}
+		case JavaScriptCmd:
+			var script string
+			if node.Data.Source.Script.Source != "" {
+				script = node.Data.Source.Script.Source
+			} else {
+				script = node.Data.GetInputValue("script").(string)
+			}
 
-	if !s.EndAt.IsZero() {
-		s.Spend = s.EndAt.Sub(s.RunAt).String()
-	}
-	return s
-}
+			var err error
+			cmder, err = cmd.NewJavaScript(script)
+			if err != nil {
+				return nil, writeflow.NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
+			}
+		case BuiltInCmd:
+			cmdName = node.Data.Source.BuiltinCmd
+		}
 
-func (r *NodeStatus) Json() ([]byte, error) {
-	// 过滤私密信息
-	for k, v := range r.Result {
-		if d, ok := v.(interface{ Display() string }); ok {
-			r.Result[k] = d.Display()
+		nodes[node.Id] = writeflow.Node{
+			Id:       node.Id,
+			Cmd:      cmdName,
+			BuiltCmd: cmder,
+			Inputs:   inputs,
 		}
 	}
-
-	return json.Marshal(r)
+	return &writeflow.Flow{
+		Nodes:        nodes,
+		OutputNodeId: m.Graph.GetOutputNodeId(),
+	}, nil
 }

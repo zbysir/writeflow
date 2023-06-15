@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/docker/libkv/store"
 	"github.com/zbysir/writeflow/internal/model"
+	"github.com/zbysir/writeflow/pkg/writeflow"
 	"time"
 )
 
@@ -32,7 +33,7 @@ func (b *BoltDBFlow) DeleteFlow(ctx context.Context, id int64) (err error) {
 	return nil
 }
 
-func (b *BoltDBFlow) GetComponentList(ctx context.Context, params GetFlowListParams) (cs []model.Component, total int, err error) {
+func (b *BoltDBFlow) GetComponentList(ctx context.Context, params GetFlowListParams) (cs []writeflow.Component, total int, err error) {
 	kv, err := b.store.List("component")
 	if err != nil {
 		if err == store.ErrKeyNotFound {
@@ -45,7 +46,7 @@ func (b *BoltDBFlow) GetComponentList(ctx context.Context, params GetFlowListPar
 		if i < params.Offset {
 			continue
 		}
-		flow := model.Component{}
+		flow := writeflow.Component{}
 		err = json.Unmarshal(item.Value, &flow)
 		if err != nil {
 			err = fmt.Errorf("json.Unmarshal error: %w", err)

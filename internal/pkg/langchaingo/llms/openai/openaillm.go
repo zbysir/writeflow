@@ -2,12 +2,10 @@ package openai
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/zbysir/writeflow/internal/pkg/langchaingo/llms"
 	"github.com/zbysir/writeflow/internal/pkg/langchaingo/llms/openai/internal/openaiclient"
 	"github.com/zbysir/writeflow/internal/pkg/langchaingo/schema"
-	"github.com/zbysir/writeflow/internal/pkg/log"
 )
 
 var (
@@ -85,11 +83,6 @@ func (o *LLM) Chat(ctx context.Context, messages []schema.ChatMessage, options .
 		msgs[i] = msg
 	}
 
-	bs, _ := json.Marshal(msgs)
-	log.Infof("msgs: %s", bs)
-
-	log.Infof("models: %s", opts.Model)
-
 	request := openaiclient.ChatRequest{
 		Model:       opts.Model,
 		Messages:    msgs,
@@ -100,11 +93,7 @@ func (o *LLM) Chat(ctx context.Context, messages []schema.ChatMessage, options .
 		Functions:   opts.Functions,
 	}
 
-	bs, _ = json.Marshal(request)
-	log.Infof("requ: %s", bs)
-
 	result, err := o.client.CreateChat(ctx, &request)
-	log.Infof("res: %+v", result)
 	if err != nil {
 		return nil, err
 	}

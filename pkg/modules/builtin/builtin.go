@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"github.com/spf13/cast"
 	"github.com/zbysir/writeflow/internal/cmd"
-	"github.com/zbysir/writeflow/internal/model"
-	"github.com/zbysir/writeflow/pkg/modules"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"github.com/zbysir/writeflow/pkg/writeflow"
 	"io/ioutil"
@@ -30,10 +28,10 @@ func New() *Builtin {
 	return &Builtin{}
 }
 
-var _ modules.Module = (*Builtin)(nil)
+var _ writeflow.Module = (*Builtin)(nil)
 
-func (b *Builtin) Info() modules.ModuleInfo {
-	return modules.ModuleInfo{
+func (b *Builtin) Info() writeflow.ModuleInfo {
+	return writeflow.ModuleInfo{
 		NameSpace: "builtin",
 	}
 }
@@ -42,8 +40,8 @@ func (b *Builtin) Info() modules.ModuleInfo {
 // go_script: 有个编辑器直接编辑 go 代码
 // output: 可以按照格式（如 markdown）显示输出
 
-func (b *Builtin) Categories() []model.Category {
-	return []model.Category{
+func (b *Builtin) Categories() []writeflow.Category {
+	return []writeflow.Category{
 		{
 			Key: "input",
 			Name: map[string]string{
@@ -89,23 +87,21 @@ func (b *Builtin) Categories() []model.Category {
 	}
 }
 
-func (b *Builtin) Components() []model.Component {
-	return []model.Component{
+func (b *Builtin) Components() []writeflow.Component {
+	return []writeflow.Component{
 		{
 			Id:       0,
 			Type:     "input_string",
 			Category: "input",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "输入字符串",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "raw",
-					GoPackage:  model.ComponentGoPackage{},
-					Script:     model.ComponentScript{},
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "字符串",
@@ -115,7 +111,7 @@ func (b *Builtin) Components() []model.Component {
 						Optional: true,
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "Default",
@@ -131,15 +127,15 @@ func (b *Builtin) Components() []model.Component {
 			Id:       0,
 			Type:     "input_string_password",
 			Category: "input",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "Password",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "raw",
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "字符串",
@@ -150,7 +146,7 @@ func (b *Builtin) Components() []model.Component {
 						Optional:    true,
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "Default",
@@ -166,17 +162,15 @@ func (b *Builtin) Components() []model.Component {
 			Id:       0,
 			Type:     "params",
 			Category: "input",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "请求参数",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "_params",
-					GoPackage:  model.ComponentGoPackage{},
-					Script:     model.ComponentScript{},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "Default",
@@ -191,17 +185,15 @@ func (b *Builtin) Components() []model.Component {
 			Id:       0,
 			Type:     "call_http",
 			Category: "data",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "HTTP 请求",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "call_http",
-					GoPackage:  model.ComponentGoPackage{},
-					Script:     model.ComponentScript{},
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "URL",
@@ -219,7 +211,7 @@ func (b *Builtin) Components() []model.Component {
 						Optional: true,
 					},
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 
 						Name: map[string]string{
 							"zh-CN": "Body",
@@ -229,7 +221,7 @@ func (b *Builtin) Components() []model.Component {
 						Optional: true,
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "Default",
@@ -245,21 +237,19 @@ func (b *Builtin) Components() []model.Component {
 			Id:       0,
 			Type:     "switch",
 			Category: "logic",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "Switch",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "_switch",
-					GoPackage:  model.ComponentGoPackage{},
-					Script:     model.ComponentScript{},
 				},
 				// DynamicInput for conditions
 				DynamicInput: true,
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "Data",
 						},
@@ -267,7 +257,7 @@ func (b *Builtin) Components() []model.Component {
 						Type: "any",
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "Default",
@@ -282,19 +272,17 @@ func (b *Builtin) Components() []model.Component {
 			Id:       0,
 			Type:     "for",
 			Category: "logic",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "For",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "_for",
-					GoPackage:  model.ComponentGoPackage{},
-					Script:     model.ComponentScript{},
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "Data",
 						},
@@ -302,7 +290,7 @@ func (b *Builtin) Components() []model.Component {
 						Type: "any",
 					},
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "Item",
 						},
@@ -310,7 +298,7 @@ func (b *Builtin) Components() []model.Component {
 						Type: "any",
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "Item",
@@ -332,17 +320,15 @@ func (b *Builtin) Components() []model.Component {
 			Id:       0,
 			Type:     "sleep",
 			Category: "logic",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "Sleep",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "sleep",
-					GoPackage:  model.ComponentGoPackage{},
-					Script:     model.ComponentScript{},
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "Second",
@@ -351,7 +337,7 @@ func (b *Builtin) Components() []model.Component {
 						Type: "number",
 					},
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "Default",
 						},
@@ -359,7 +345,7 @@ func (b *Builtin) Components() []model.Component {
 						Type: "any",
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "Default",
@@ -374,14 +360,14 @@ func (b *Builtin) Components() []model.Component {
 			Id:       0,
 			Type:     "go_script",
 			Category: "script",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "Golang 脚本",
 				},
-				Source: model.ComponentSource{
-					CmdType: model.GoScriptCmd,
+				Source: writeflow.ComponentSource{
+					CmdType: writeflow.GoScriptCmd,
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "脚本代码",
@@ -404,21 +390,21 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 				},
 				DynamicInput:  true,
 				DynamicOutput: true,
-				OutputAnchors: []model.NodeOutputAnchor{},
+				OutputAnchors: []writeflow.NodeOutputAnchor{},
 			},
 		},
 		{
 			Id:       0,
 			Type:     "js_script",
 			Category: "script",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "Javascript 脚本",
 				},
-				Source: model.ComponentSource{
-					CmdType: model.JavaScriptCmd,
+				Source: writeflow.ComponentSource{
+					CmdType: writeflow.JavaScriptCmd,
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "脚本代码",
@@ -438,20 +424,20 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 			Id:       0,
 			Type:     "output",
 			Category: "output",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "Output",
 				},
 				Description: map[string]string{
 					"zh-CN": "输出",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "raw",
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "数据",
 						},
@@ -466,20 +452,20 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 			Id:       0,
 			Type:     "select",
 			Category: "data",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "Select",
 				},
 				Description: map[string]string{
 					"zh-CN": "通过路径选择数据",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "select",
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "数据",
 						},
@@ -496,7 +482,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 						Optional: true,
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "Default",
@@ -511,20 +497,20 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 			Id:       0,
 			Type:     "list",
 			Category: "data",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "List",
 				},
 				Description: map[string]string{
 					"zh-CN": "多个数据合成数组",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "list",
 				},
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
-						InputType: model.NodeInputTypeAnchor,
+						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
 							"zh-CN": "数据",
 						},
@@ -534,7 +520,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 						List:     true,
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "Default",
@@ -549,17 +535,17 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 			Id:       0,
 			Type:     "record",
 			Category: "data",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "组合多个数据为一个集合",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "record",
 				},
 				DynamicInput: true,
 				// dynamic input
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Name: map[string]string{
 							"zh-CN": "集合",
@@ -573,18 +559,18 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 		{
 			Type:     "template_text",
 			Category: "text",
-			Data: model.ComponentData{
+			Data: writeflow.ComponentData{
 				Name: map[string]string{
 					"zh-CN": "模板文本",
 				},
-				Source: model.ComponentSource{
-					CmdType:    model.BuiltInCmd,
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
 					BuiltinCmd: "template_text",
 				},
 
 				// dynamic input
 				DynamicInput: true,
-				InputParams: []model.NodeInputParam{
+				InputParams: []writeflow.NodeInputParam{
 					{
 						Name: map[string]string{
 							"zh-CN": "模板",
@@ -594,7 +580,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 						DisplayType: "textarea",
 					},
 				},
-				OutputAnchors: []model.NodeOutputAnchor{
+				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
 						Key:  "default",
 						Type: "string",

@@ -42,7 +42,7 @@ func (u *Flow) GetComponents(ctx context.Context) (cs []writeflow.CategoryWithCo
 	return cs, nil
 }
 
-func (u *Flow) GetComponentByKey(ctx context.Context, key string) (cs model.Component, exist bool, err error) {
+func (u *Flow) GetComponentByKey(ctx context.Context, key string) (cs writeflow.Component, exist bool, err error) {
 	cs, exist, err = u.wirteflow.GetComponentByKey(key)
 	return
 }
@@ -52,7 +52,7 @@ type RunStatusMessage struct {
 	Data []byte
 }
 
-func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]interface{},parallel int) (runId string, err error) {
+func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]interface{}, parallel int) (runId string, err error) {
 	flow, exist, err := u.flowRepo.GetFlowById(ctx, flowId)
 	if err != nil {
 		return "", err
@@ -61,11 +61,11 @@ func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]inte
 		return "", fmt.Errorf("flow not exist")
 	}
 
-	return u.RunFlowByDetail(ctx, flow, params,parallel)
+	return u.RunFlowByDetail(ctx, flow, params, parallel)
 }
 
 func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map[string]interface{}, parallel int) (runId string, err error) {
-	f, err := writeflow.FlowFromModel(flow)
+	f, err := model.FlowFromModel(flow)
 	if err != nil {
 		return "", err
 	}
