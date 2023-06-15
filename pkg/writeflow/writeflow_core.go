@@ -171,22 +171,26 @@ func FlowFromModel(m *model.Flow) (*Flow, error) {
 		case model.NothingCmd:
 			cmdName = model.NothingCmd
 		case model.GoScriptCmd:
-			key := node.Data.Source.Script.InputKey
-			if key == "" {
-				key = "script"
+			var script string
+			if node.Data.Source.Script.Source != "" {
+				script = node.Data.Source.Script.Source
+			} else {
+				script = node.Data.GetInputValue("script").(string)
 			}
-			script := node.Data.GetInputValue(key)
+
 			var err error
 			cmder, err = cmd.NewGoScript(nil, "", script)
 			if err != nil {
 				return nil, NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
 			}
 		case model.JavaScriptCmd:
-			key := node.Data.Source.Script.InputKey
-			if key == "" {
-				key = "script"
+			var script string
+			if node.Data.Source.Script.Source != "" {
+				script = node.Data.Source.Script.Source
+			} else {
+				script = node.Data.GetInputValue("script").(string)
 			}
-			script := node.Data.GetInputValue(key)
+
 			var err error
 			cmder, err = cmd.NewJavaScript(script)
 			if err != nil {
@@ -503,7 +507,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		for _, input := range inputs {
 			condition := input.Key
 
-			v, err := LookInterface(data, condition)
+			v, err := LookInterface(map[string]interface{}{"data": data}, condition)
 			if err != nil {
 				return nil, NewExecNodeError(fmt.Errorf("exec condition %s error: %w", condition, err), nodeId)
 			}

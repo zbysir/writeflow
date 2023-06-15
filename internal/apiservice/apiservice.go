@@ -1,13 +1,11 @@
 package apiservice
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	writeflowui "github.com/zbysir/writeflow-ui"
 	"github.com/zbysir/writeflow/internal/pkg/auth"
 	"github.com/zbysir/writeflow/internal/pkg/config"
 	"github.com/zbysir/writeflow/internal/pkg/http_file_server"
@@ -15,9 +13,9 @@ import (
 	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/internal/repo"
 	"github.com/zbysir/writeflow/internal/usecase"
-	"io"
-	"io/fs"
+	"github.com/zbysir/writeflow/pkg/writeflowui"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 )
@@ -39,8 +37,8 @@ func NewApiService(config Config, flowRepo repo.Flow) *ApiService {
 
 func Cors() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		method := c.Request.Method               // 请求方法
-		origin := c.Request.Header.Get("Origin") // 请求头部
+		method := c.Request.Method
+		origin := c.Request.Header.Get("Origin")
 
 		if origin != "" {
 			c.Header("Access-Control-Allow-Origin", origin)
@@ -49,9 +47,9 @@ func Cors() gin.HandlerFunc {
 		}
 		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Length, X-CSRF-Token, Token,session,X_Requested_With,Accept, Origin, Host, Connection, Accept-Encoding, Accept-Language,DNT, X-CustomHeader, Keep-Alive, User-Agent, X-Requested-With, If-Modified-Since, Cache-Control, Content-Type, Pragma, Cookie")
 		c.Header("Access-Control-Allow-Methods", "OPTIONS,GET,PUT,POST,DELETE")
-		c.Header("Access-Control-Allow-Credentials", "true") //  跨域请求是否需要带cookie信息 默认设置为true
+		c.Header("Access-Control-Allow-Credentials", "true") //  跨域请求是否需要带 cookie 信息 默认设置为 true
 
-		//放行所有 OPTIONS 方法
+		// 放行所有 OPTIONS 方法
 		if method == "OPTIONS" {
 			c.JSON(http.StatusOK, "Options Request!")
 			c.Abort()
@@ -107,81 +105,6 @@ func Auth(secret string) gin.HandlerFunc {
 	}
 }
 
-type FsHook struct {
-	i       fs.FS
-	context []byte
-}
-
-func NewFsHook(i fs.FS, context []byte) *FsHook {
-	return &FsHook{i: i, context: context}
-}
-
-type FileHook struct {
-	i             fs.File
-	buf           []byte
-	injectContext []byte
-}
-
-func NewFileHook(i fs.File, injectContext []byte) *FileHook {
-	bs, err := io.ReadAll(i)
-	if err != nil {
-		log.Infof("%v", err)
-		return &FileHook{i: i, injectContext: injectContext}
-	}
-
-	bs = bytes.ReplaceAll(bs, []byte("<head>"), append([]byte("<head>"), injectContext...))
-
-	return &FileHook{i: i, buf: bs}
-}
-
-type FileInfoHook struct {
-	fs.FileInfo
-	size int
-}
-
-func (f *FileInfoHook) Size() int64 {
-	return int64(f.size)
-}
-
-func (f *FileHook) Stat() (fs.FileInfo, error) {
-	info, err := f.i.Stat()
-	if err != nil {
-		return nil, err
-	}
-	return &FileInfoHook{FileInfo: info, size: len(f.buf)}, nil
-}
-
-func (f *FileHook) Read(ibytes []byte) (int, error) {
-	copy(ibytes, f.buf)
-	l := 0
-	if len(f.buf) > len(ibytes) {
-		f.buf = f.buf[len(ibytes):]
-		l = len(ibytes)
-	} else {
-		l = len(f.buf)
-		f.buf = nil
-	}
-
-	return l, nil
-}
-
-func (f *FileHook) Close() error {
-	return f.i.Close()
-}
-
-func (f *FsHook) Open(name string) (fs.File, error) {
-	i, err := f.i.Open(name)
-	if err != nil {
-		return nil, err
-	}
-
-	if name == "index.html" {
-		return NewFileHook(i, f.context), nil
-	}
-
-	return i, err
-}
-
 func (a *ApiService) Run(ctx context.Context, addr string) (err error) {
 	if !config.IsDebug() {
 		gin.SetMode(gin.ReleaseMode)
@@ -189,22 +112,46 @@ func (a *ApiService) Run(ctx context.Context, addr string) (err error) {
 	r := gin.Default()
 	r.Use(Cors())
 
-	apiHost := fmt.Sprintf("http://localhost%s", a.config.ListenAddress)
-	wsHost := fmt.Sprintf("ws://localhost%s", a.config.ListenAddress)
-
 	r.NoRoute(func(c *gin.Context) {
-		d, _ := fs.Sub(writeflowui.Dist, "dist")
+		proto := "http"
+		host := c.Request.Host
 
-		d = NewFsHook(d, []byte(fmt.Sprintf(`<script>window.__service_host__ = {"api": %q, "ws": %q} </script>`, apiHost, wsHost)))
+		referer := c.Request.Referer()
+		if referer != "" {
+			parse, err := url.Parse(referer)
+			if err != nil {
+				log.Errorf("parse referer err: %+v", err)
+			}
+			host = parse.Host
+			proto = parse.Scheme
+		}
+
+		apiHost := fmt.Sprintf("%s://%s", proto, host)
+		wsHost := ""
+		if proto == "https" {
+			wsHost = fmt.Sprintf("wss://%s", host)
+		} else {
+			wsHost = fmt.Sprintf("ws://%s", host)
+		}
+
+		d := writeflowui.UIFs(writeflowui.UIConfig{
+			ApiHost: apiHost,
+			WsHost:  wsHost,
+		})
+
 		// try file
 		p := strings.TrimPrefix(c.Request.URL.Path, "/")
-		_, err := d.Open(p)
+		f, err := d.Open(p)
 		if err != nil {
-			_, err = d.Open(filepath.Join(p, "index.html"))
+			f, err = d.Open(filepath.Join(p, "index.html"))
 			if err != nil {
 				// fallback to index.html
 				c.Request.URL.Path = ""
+			} else {
+				f.Close()
 			}
+		} else {
+			f.Close()
 		}
 
 		http_file_server.WrapEtagHandler(http.FileServer(http.FS(d))).ServeHTTP(c.Writer, c.Request)
@@ -266,8 +213,7 @@ func (a *ApiService) Run(ctx context.Context, addr string) (err error) {
 			return
 		}
 		t := auth.CreateToken(p.Secret)
-		// TODO Get domain from query host
-		c.SetCookie("token", t, 7*24*3600, "", "localhost:9433", false, true)
+		c.SetCookie("token", t, 7*24*3600, "", c.Request.Host, false, true)
 		c.JSON(200, "ok")
 	})
 

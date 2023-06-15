@@ -3,15 +3,22 @@ package writeflow
 import (
 	"fmt"
 	"github.com/dop251/goja"
+	"github.com/zbysir/gojsx"
 )
 
-func LookInterface(i interface{}, key string) (v interface{}, err error) {
+// LookInterface i: {"a": 1, "b": {"d": 2}}, support key: a, b.d
+func LookInterface(i map[string]interface{}, key string) (v interface{}, err error) {
 	r := goja.New()
-	r.Set("data", i)
+	for k, v := range i {
+		err = r.Set(k, v)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	out, err := r.RunScript("look_interface", fmt.Sprintf("%v", key))
 	if err != nil {
-		return nil, err
+		return nil, gojsx.PrettifyException(err)
 	}
 	return out.Export(), nil
 }
@@ -23,7 +30,7 @@ func ForInterface(i interface{}, n func(i interface{})) (err error) {
 
 	_, err = r.RunScript("for_interface", fmt.Sprintf("data.forEach(n)"))
 	if err != nil {
-		return err
+		return gojsx.PrettifyException(err)
 	}
 	return nil
 }

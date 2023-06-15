@@ -2,11 +2,13 @@ package langchain
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/model"
+	llms2 "github.com/zbysir/writeflow/internal/pkg/langchaingo/llms"
+	openai2 "github.com/zbysir/writeflow/internal/pkg/langchaingo/llms/openai"
+	schema2 "github.com/zbysir/writeflow/internal/pkg/langchaingo/schema"
 	"github.com/zbysir/writeflow/pkg/modules"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"reflect"
@@ -101,6 +103,15 @@ func (l *LangChain) Components() []model.Component {
 					{
 						InputType: model.NodeInputTypeAnchor,
 						Name: map[string]string{
+							"zh-CN": "Functions",
+						},
+						Key:      "functions",
+						Type:     "string",
+						Optional: true,
+					},
+					{
+						InputType: model.NodeInputTypeAnchor,
+						Name: map[string]string{
 							"zh-CN": "Prompt",
 						},
 						Key:  "prompt",
@@ -112,6 +123,10 @@ func (l *LangChain) Components() []model.Component {
 						Key:  "default",
 						Type: "string",
 					},
+					{
+						Key:  "function_call",
+						Type: "any",
+					},
 				},
 			},
 		},
@@ -122,7 +137,7 @@ func (l *LangChain) Cmd() map[string]schema.CMDer {
 	return map[string]schema.CMDer{
 		"new_openai": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			key := params["api_key"].(string)
-			ll, err := openai.New(openai.WithToken(key))
+			ll, err := openai2.New(openai2.WithToken(key), openai2.WithModel("gpt-3.5-turbo-0613"))
 			if err != nil {
 				return nil, err
 			}
@@ -130,18 +145,30 @@ func (l *LangChain) Cmd() map[string]schema.CMDer {
 			return map[string]interface{}{"default": ll}, nil
 		}),
 		"langchain_call": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-			llm := params["llm"].(llms.LLM)
+			llm := params["llm"].(llms2.ChatLLM)
 			promptI := params["prompt"]
+			functionI := params["functions"]
 			if promptI == nil {
 				return nil, fmt.Errorf("prompt is nil")
 			}
 			prompt := promptI.(string)
-			s, err := llm.Call(ctx, prompt)
+			var functions []llms2.Function
+			if functionI != nil {
+				function := functionI.(string)
+				err = json.Unmarshal([]byte(function), &functions)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			s, err := llm.Chat(ctx, []schema2.ChatMessage{
+				schema2.HumanChatMessage{Text: prompt},
+			}, llms2.WithFunctions(functions), llms2.WithModel("gpt-3.5-turbo-0613"))
 			if err != nil {
 				return nil, err
 			}
 
-			return map[string]interface{}{"default": s}, nil
+			return map[string]interface{}{"default": s.Message.Text, "function_call": s.Message.FunctionCall}, nil
 		}),
 	}
 }

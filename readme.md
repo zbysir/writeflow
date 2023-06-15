@@ -2,10 +2,11 @@ Writeflow 支持通过拖拽节点来构建一个复杂的应用。
 
 ![img.png](doc/simple.png)
 
-## 相似产品
+## 相似项目
 - [Concepts](https://conductor.netflix.com/devguide/concepts/index.html)
 - [Flowise](https://github.com/FlowiseAI/Flowise)
 - [PostMan Flow](https://learning.postman.com/docs/postman-flows/gs/flows-overview/)
+- [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 
 ## 特性
 

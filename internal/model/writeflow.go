@@ -43,5 +43,12 @@ func NewNodeStatus(nodeId string, status Status, error string, result map[string
 }
 
 func (r *NodeStatus) Json() ([]byte, error) {
+	// 过滤私密信息
+	for k, v := range r.Result {
+		if d, ok := v.(interface{ Display() string }); ok {
+			r.Result[k] = d.Display()
+		}
+	}
+
 	return json.Marshal(r)
 }

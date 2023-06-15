@@ -21,6 +21,7 @@ type Flow interface {
 }
 
 type GetFlowListParams struct {
-	Limit  int `json:"limit" form:"limit"`
-	Offset int `json:"offset" form:"offset"`
+	Limit     int  `json:"limit" form:"limit"`
+	Offset    int  `json:"offset" form:"offset"`
+	WithGraph bool `json:"with_graph" form:"with_graph"`
 }

@@ -18,17 +18,10 @@ func NewWriteFlow(ops ...Option) *WriteFlow {
 	for _, op := range ops {
 		op(&o)
 	}
-	builtinCmd := map[string]schema.CMDer{}
-	for _, m := range o.modules {
-		//info := m.Info()
-		for k, v := range m.Cmd() {
-			//builtinCmd[info.NameSpace+"."+k] = v
-			builtinCmd[k] = v
-		}
-	}
 	c := NewWriteFlowCore()
 	for _, v := range o.modules {
 		for k, v := range v.Cmd() {
+			//builtinCmd[info.NameSpace+"."+k] = v
 			c.RegisterCmd(k, v)
 		}
 	}

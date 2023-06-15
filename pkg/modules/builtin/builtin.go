@@ -129,6 +129,41 @@ func (b *Builtin) Components() []model.Component {
 		},
 		{
 			Id:       0,
+			Type:     "input_string_password",
+			Category: "input",
+			Data: model.ComponentData{
+				Name: map[string]string{
+					"zh-CN": "Password",
+				},
+				Source: model.ComponentSource{
+					CmdType:    model.BuiltInCmd,
+					BuiltinCmd: "raw",
+				},
+				InputParams: []model.NodeInputParam{
+					{
+						Name: map[string]string{
+							"zh-CN": "字符串",
+						},
+						Key:         "default",
+						Type:        "string",
+						DisplayType: "password",
+						Optional:    true,
+					},
+				},
+				OutputAnchors: []model.NodeOutputAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Default",
+						},
+						Key:  "default",
+						Type: "string",
+						List: false,
+					},
+				},
+			},
+		},
+		{
+			Id:       0,
 			Type:     "params",
 			Category: "input",
 			Data: model.ComponentData{
@@ -344,12 +379,7 @@ func (b *Builtin) Components() []model.Component {
 					"zh-CN": "Golang 脚本",
 				},
 				Source: model.ComponentSource{
-					CmdType:    model.GoScriptCmd,
-					BuiltinCmd: "",
-					GoPackage:  model.ComponentGoPackage{},
-					Script: model.ComponentScript{
-						InputKey: "script",
-					},
+					CmdType: model.GoScriptCmd,
 				},
 				InputParams: []model.NodeInputParam{
 					{
@@ -386,12 +416,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 					"zh-CN": "Javascript 脚本",
 				},
 				Source: model.ComponentSource{
-					CmdType:    model.JavaScriptCmd,
-					BuiltinCmd: "",
-					GoPackage:  model.ComponentGoPackage{},
-					Script: model.ComponentScript{
-						InputKey: "script",
-					},
+					CmdType: model.JavaScriptCmd,
 				},
 				InputParams: []model.NodeInputParam{
 					{
@@ -601,22 +626,25 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 		"template_text": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			tpl := params["template"].(string)
 
-			vars, _ := json.Marshal(params)
-			var varMap map[string]interface{}
-			err = json.Unmarshal(vars, &varMap)
-			if err != nil {
-				return nil, err
-			}
 			// match {{abc}}
-			reg := regexp.MustCompile(`{{\s*(\w+)\s*}}`)
+			reg := regexp.MustCompile(`{{.+?}}`)
 			s := reg.ReplaceAllStringFunc(tpl, func(s string) string {
-				s = strings.Trim(s, "{} ")
-				r, ok := lookupMap(varMap, strings.Split(s, ".")...)
-				if !ok {
-					return s
+				if err != nil {
+					return ""
+				}
+				s = strings.TrimPrefix(s, "{{")
+				s = strings.TrimSuffix(s, "}}")
+				s = strings.TrimSpace(s)
+				r, e := writeflow.LookInterface(params, s)
+				if e != nil {
+					err = fmt.Errorf("exec template exp '%s' error: %w", s, e)
+					return ""
 				}
 				return fmt.Sprintf("%v", r)
 			})
+			if err != nil {
+				return nil, err
+			}
 
 			return map[string]interface{}{"default": s}, nil
 		}),
@@ -633,7 +661,7 @@ func (b *Builtin) Cmd() map[string]schema.CMDer {
 			}
 
 			path := p.(string)
-			l, err := writeflow.LookInterface(d, path)
+			l, err := writeflow.LookInterface(map[string]interface{}{"data": d}, path)
 			if err != nil {
 				return nil, err
 			}

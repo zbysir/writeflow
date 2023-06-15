@@ -80,6 +80,9 @@ func (b *BoltDBFlow) GetFlowList(ctx context.Context, params GetFlowListParams) 
 			err = fmt.Errorf("json.Unmarshal error: %w", err)
 			return nil, 0, err
 		}
+		if params.WithGraph {
+			flow.Graph.Nodes = nil
+		}
 
 		fs = append(fs, flow)
 		if len(fs) >= params.Limit {
