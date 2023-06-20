@@ -136,21 +136,7 @@ func (d *Flow) UsedComponents() (componentType []string) {
 	return componentType
 }
 
-type Map struct {
-	*sync.Map
-}
-
-func (m *Map) Raw() map[string]interface{} {
-	if m.Map == nil {
-		return nil
-	}
-	r := map[string]interface{}{}
-	m.Range(func(key, value interface{}) bool {
-		r[key.(string)] = value
-		return true
-	})
-	return r
-}
+type Map = map[string]interface{}
 
 func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (results chan NodeStatusLog, err error) {
 	// use params node to get init params
@@ -221,10 +207,10 @@ func (r *runner) getRspCache(nodeId string, key string) (v interface{}, exist bo
 		return nil, false, nil
 	}
 	err = r.cmdRspCache[nodeId].err
-	if r.cmdRspCache[nodeId].rsp.Map == nil {
+	if r.cmdRspCache[nodeId].rsp == nil {
 		return nil, true, err
 	}
-	v, exist = r.cmdRspCache[nodeId].rsp.Load(key)
+	v, exist = r.cmdRspCache[nodeId].rsp[key]
 	return
 }
 
@@ -330,11 +316,10 @@ var ErrNodeUnreachable = errors.New("node unreachable")
 // 而逻辑分支相对固定，可以内置实现。
 
 func NewMap(s map[string]interface{}) Map {
-	sm := &sync.Map{}
-	for k, v := range s {
-		sm.Store(k, v)
+	if s == nil {
+		return map[string]interface{}{}
 	}
-	return Map{Map: sm}
+	return s
 }
 
 type Stack struct {
@@ -410,6 +395,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					}
 					if ok {
 						values = append(values, v)
+						f.keyLock.Unlock(lockKey)
 					} else {
 						rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeStatusChange)
 						if err != nil {
@@ -418,13 +404,13 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 							f.keyLock.Unlock(lockKey)
 							return nil, err
 						}
-						if rsps.Map == nil {
+						if rsps == nil {
 							f.setRspCache(i.NodeId, rsps, nil)
 							f.keyLock.Unlock(lockKey)
 							continue
 						}
 
-						value, _ := rsps.Load(i.OutputKey)
+						value := rsps[i.OutputKey]
 						values = append(values, value)
 
 						f.setRspCache(i.NodeId, rsps, nil)
@@ -439,13 +425,15 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 						f.keyLock.Unlock(lockKey)
 						return nil, err
 					}
-					if rsps.Map == nil {
+					if rsps == nil {
+						f.setRspCache(i.NodeId, rsps, nil)
 						f.keyLock.Unlock(lockKey)
 						continue
 					}
 
-					value, _ := rsps.Load(i.OutputKey)
+					value, _ := rsps[i.OutputKey]
 					values = append(values, value)
+					f.keyLock.Unlock(lockKey)
 				}
 			}
 
@@ -553,6 +541,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		var inputKeys []string
 
 		var wg sync.WaitGroup
+		var ml sync.Mutex
 		var calcErr error
 		for _, i := range inputs {
 			inputKeys = append(inputKeys, i.Key)
@@ -575,7 +564,9 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					if err != nil {
 						calcErr = err
 					} else {
-						dependValue.Store(i.Key, r)
+						ml.Lock()
+						dependValue[i.Key] = r
+						ml.Unlock()
 					}
 				}(i)
 			default:
@@ -584,10 +575,13 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					log.Errorf("calcInput %v error: %v", nodeId, err)
 					return Map{}, err
 				}
-				dependValue.Store(i.Key, r)
+				ml.Lock()
+				dependValue[i.Key] = r
+				ml.Unlock()
 			}
 		}
 		wg.Wait()
+
 		if calcErr != nil {
 			return Map{}, calcErr
 		}
@@ -595,44 +589,50 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		// 流式输出特殊处理，异步读取输入的流并同步状态。
 		if nodeDef.Cmd == "_output" {
 			var wg sync.WaitGroup
-			dependValue.Range(func(k, v interface{}) bool {
+			dependValuex := map[string]interface{}{}
+			valueLock := sync.Mutex{}
+			for k, v := range dependValue {
+				dependValuex[k] = v
+			}
+			for k, v := range dependValue {
 				if steam, ok := v.(*StreamResponse[string]); ok {
 					wg.Add(1)
-					dependValue.Store(k, "")
+					valueLock.Lock()
+					dependValuex[k] = ""
+					valueLock.Unlock()
 					reader := steam.NewReader()
 					go func() {
 						defer wg.Done()
 						for {
 							var t string
 							t, err = reader.Read()
-							//log.Infof("Recv: %+v %v", t, err)
 							if err != nil {
 								if err == io.EOF {
 									err = nil
 								}
 								break
 							} else {
-								dependValue.Store(k, t)
+								valueLock.Lock()
+								dependValuex[k] = t
+								valueLock.Unlock()
 
-								onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", dependValue, start, time.Now()))
+								onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", dependValuex, start, time.Now()))
 							}
 						}
 					}()
 				}
-
-				return true
-			})
+			}
 
 			wg.Wait()
 			if err == nil {
-				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusSuccess, "", dependValue, start, time.Now()))
+				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusSuccess, "", dependValuex, start, time.Now()))
 				err = nil
 			} else {
-				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), dependValue, start, time.Now()))
+				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), dependValuex, start, time.Now()))
 			}
 
 			skipEmitChange = true
-			return dependValue, err
+			return nil, err
 		} else {
 			// 只有自定义 cmd 才需要报告 running 状态，特殊的 _for, _switch 不需要。
 			if onNodeStatusChange != nil {
@@ -640,22 +640,20 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			}
 
 			// 其他命令需要等待直到流完成
-			dependValue.Range(func(k, v interface{}) bool {
+			for k, v := range dependValue {
 				if steam, ok := v.(*StreamResponse[string]); ok {
 					var ts []string
 					ts, err = steam.NewReader().ReadAll()
 					if err != nil {
-						return false
+						break
 					}
 					if len(ts) != 0 {
-						dependValue.Store(k, ts[len(ts)-1])
+						dependValue[k] = ts[len(ts)-1]
 					} else {
-						dependValue.Store(k, "")
+						dependValue[k] = ""
 					}
 				}
-
-				return true
-			})
+			}
 			if err != nil {
 				return Map{}, NewExecNodeError(err, nodeDef.Id)
 			}
@@ -682,26 +680,9 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		if err != nil {
 			return Map{}, NewExecNodeError(err, nodeDef.Id)
 		}
-
-		// 等待 steam
-		//wg = sync.WaitGroup{}
-		//
-		//rsp.Range(func(k, v interface{}) bool {
-		//	if steam, ok := v.(*StreamResponse[string]); ok {
-		//		rsp.Store(k, "")
-		//		wg.Add(1)
-		//		go func() {
-		//			defer wg.Done()
-		//			_ = steam.Wait()
-		//		}()
-		//	}
-		//
-		//	return true
-		//})
-		//wg.Wait()
 	}
 
 	//log.Printf("dependValue: %+v", dependValue)
 
-	return rsp, err
+	return rsp, nil
 }

@@ -146,10 +146,12 @@ func NewNodeStatusLog(nodeId string, status NodeStatus, error string, result Map
 
 func (r *NodeStatusLog) Json() ([]byte, error) {
 	// 过滤私密信息
-	rr := r.ResultRaw.Raw()
-	for k, v := range rr {
+	rr := map[string]interface{}{}
+	for k, v := range r.ResultRaw {
 		if d, ok := v.(interface{ Display() string }); ok {
 			rr[k] = d.Display()
+		} else {
+			rr[k] = v
 		}
 	}
 	r.Result = rr

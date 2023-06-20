@@ -172,7 +172,7 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 				return
 			}
 			ctx.Header("x-spend", fmt.Sprintf("%v", time.Since(start)))
-			ctx.JSON(200, r.Raw())
+			ctx.JSON(200, r)
 		} else {
 			r, err := a.flowUsecase.RunFlowSync(context.Background(), params.Id, params.Params, params.Parallel, params.OutputNodeId)
 			if err != nil {
@@ -180,7 +180,7 @@ func (a *ApiService) RegisterFlow(router gin.IRoutes) {
 				return
 			}
 			ctx.Header("x-spend", fmt.Sprintf("%v", time.Since(start)))
-			ctx.JSON(200, r.Raw())
+			ctx.JSON(200, r)
 		}
 	})
 

@@ -14,7 +14,6 @@ type StreamResponse[T any] struct {
 	//c         chan T
 	done      chan struct{}
 	closeOnce sync.Once
-	wg        *sync.WaitGroup
 }
 
 func (s *StreamResponse[T]) Display() string {
@@ -22,9 +21,7 @@ func (s *StreamResponse[T]) Display() string {
 }
 
 func NewSteamResponse[T any]() *StreamResponse[T] {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	return &StreamResponse[T]{done: make(chan struct{}, 1), wg: &wg}
+	return &StreamResponse[T]{done: make(chan struct{}, 1)}
 }
 
 type SteamResponseStr StreamResponse[string]
@@ -86,13 +83,13 @@ func (s *StreamResponse[T]) Append(a T) {
 
 func (s *StreamResponse[T]) Close(e error) {
 	s.closeOnce.Do(func() {
-		s.wg.Done()
 		s.err = e
 		close(s.done)
 	})
 }
 
-func (s *StreamResponse[T]) Wait() (e error) {
-	s.wg.Wait()
-	return nil
+func (s *StreamResponse[T]) Wait() {
+	select {
+	case <-s.done:
+	}
 }

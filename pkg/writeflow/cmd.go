@@ -33,14 +33,6 @@ func (e ExecFun) Exec(ctx context.Context, params Map) (rsp Map, err error) {
 type ExecFunMap func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
 
 func (e ExecFunMap) Exec(ctx context.Context, params Map) (rsp Map, err error) {
-	rr := map[string]interface{}{}
-	params.Range(func(key any, value interface{}) bool {
-		rr[key.(string)] = value
-		return true
-	})
-	r, err := e(ctx, rr)
-	if err != nil {
-		return Map{}, err
-	}
-	return NewMap(r), nil
+
+	return e(ctx, params)
 }

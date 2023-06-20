@@ -298,6 +298,8 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 
 				return map[string]interface{}{"default": steam, "function_call": ""}, nil
 			} else {
+
+				log.Infof("functions %v", functions)
 				rsp, err := openaiClient.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 					Model:            "gpt-3.5-turbo-0613",
 					Messages:         messages,
@@ -320,10 +322,7 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 
 				content := rsp.Choices[0].Message.Content
 				if chatMemory != nil {
-					chatMemory.AppendHistory(ctx, openai.ChatCompletionMessage{
-						Role:    openai.ChatMessageRoleAssistant,
-						Content: content,
-					})
+					chatMemory.AppendHistory(ctx, rsp.Choices[0].Message)
 				}
 
 				return map[string]interface{}{"default": content, "function_call": rsp.Choices[0].Message.FunctionCall}, nil
