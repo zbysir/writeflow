@@ -202,21 +202,29 @@ func (f *WriteFlowCore) ExecNode(ctx context.Context, flow *Flow, initParams map
 type runner struct {
 	flowDef     *Flow
 	cmd         map[string]CMDer                  // id -> cmder
-	cmdRspCache map[string]Map                    // nodeId->key->value
+	cmdRspCache map[string]*runnerRsp             // nodeId->key->value
 	inject      map[string]map[string]interface{} // nodeId->key->value
 	l           sync.RWMutex                      // lock for map
 	keyLock     *keylock.KeyLock                  // lock for cmdRspCache (防止并发下缓存穿透)
 	limitChan   chan struct{}
 }
+type runnerRsp struct {
+	rsp Map
+	err error
+}
 
-func (r *runner) getRspCache(nodeId string, key string) (v interface{}, exist bool) {
+func (r *runner) getRspCache(nodeId string, key string) (v interface{}, exist bool, err error) {
 	r.l.RLock()
 	defer r.l.RUnlock()
 
-	if r.cmdRspCache[nodeId].Map == nil {
-		return nil, false
+	if r.cmdRspCache[nodeId] == nil {
+		return nil, false, nil
 	}
-	v, exist = r.cmdRspCache[nodeId].Load(key)
+	err = r.cmdRspCache[nodeId].err
+	if r.cmdRspCache[nodeId].rsp.Map == nil {
+		return nil, true, err
+	}
+	v, exist = r.cmdRspCache[nodeId].rsp.Load(key)
 	return
 }
 
@@ -231,23 +239,11 @@ func (r *runner) getInject(nodeId string, key string) (v interface{}, exist bool
 	return
 }
 
-func (r *runner) setRspCache(nodeId string, rsp Map) {
+func (r *runner) setRspCache(nodeId string, rsp Map, err error) {
 	r.l.Lock()
 	defer r.l.Unlock()
 
-	r.cmdRspCache[nodeId] = rsp
-	return
-}
-
-func (r *runner) setRspItemCache(nodeId string, k string, v interface{}) {
-	r.l.Lock()
-	defer r.l.Unlock()
-
-	if r.cmdRspCache[nodeId].Map == nil {
-		r.cmdRspCache[nodeId] = NewMap(nil)
-	}
-
-	r.cmdRspCache[nodeId].Store(k, v)
+	r.cmdRspCache[nodeId] = &runnerRsp{rsp: rsp, err: err}
 	return
 }
 
@@ -267,7 +263,7 @@ func newRunner(cmd map[string]CMDer, flowDef *Flow, parallel int) *runner {
 	return &runner{
 		flowDef:     flowDef,
 		cmd:         cmd,
-		cmdRspCache: map[string]Map{},
+		cmdRspCache: map[string]*runnerRsp{},
 		inject:      map[string]map[string]interface{}{},
 		l:           sync.RWMutex{},
 		keyLock:     keylock.NewKeyLock(),
@@ -398,29 +394,58 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 				for {
 					lock := f.keyLock.TryLock(lockKey)
 					if lock {
+						//log.Infof("---- lock %s", lockKey)
 						break
 					}
+					//log.Infof("----wait lock %s", lockKey)
 					time.Sleep(time.Millisecond * 100)
 				}
 
-				v, ok = f.getRspCache(i.NodeId, i.OutputKey)
-				if ok && !nocache {
-					values = append(values, v)
+				if !nocache {
+					v, ok, err = f.getRspCache(i.NodeId, i.OutputKey)
+					if err != nil {
+						//log.Infof("----Unlock %s", lockKey)
+						f.keyLock.Unlock(lockKey)
+						return nil, err
+					}
+					if ok {
+						values = append(values, v)
+					} else {
+						rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeStatusChange)
+						if err != nil {
+							//log.Infof("----Unlock %s", lockKey)
+							f.setRspCache(i.NodeId, Map{}, err)
+							f.keyLock.Unlock(lockKey)
+							return nil, err
+						}
+						if rsps.Map == nil {
+							f.setRspCache(i.NodeId, rsps, nil)
+							f.keyLock.Unlock(lockKey)
+							continue
+						}
+
+						value, _ := rsps.Load(i.OutputKey)
+						values = append(values, value)
+
+						f.setRspCache(i.NodeId, rsps, nil)
+						//log.Infof("----Unlock %s", lockKey)
+						f.keyLock.Unlock(lockKey)
+					}
 				} else {
 					rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeStatusChange)
 					if err != nil {
 						//log.Infof("----Unlock %s", lockKey)
-
+						f.setRspCache(i.NodeId, Map{}, err)
 						f.keyLock.Unlock(lockKey)
-
 						return nil, err
 					}
+					if rsps.Map == nil {
+						f.keyLock.Unlock(lockKey)
+						continue
+					}
+
 					value, _ := rsps.Load(i.OutputKey)
 					values = append(values, value)
-
-					f.setRspCache(i.NodeId, rsps)
-					//log.Infof("----Unlock %s", lockKey)
-					f.keyLock.Unlock(lockKey)
 				}
 			}
 
@@ -622,7 +647,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					if err != nil {
 						return false
 					}
-					if ts != nil {
+					if len(ts) != 0 {
 						dependValue.Store(k, ts[len(ts)-1])
 					} else {
 						dependValue.Store(k, "")

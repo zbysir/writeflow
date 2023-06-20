@@ -248,7 +248,7 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 					Temperature:      0,
 					TopP:             0,
 					N:                0,
-					Stream:           false,
+					Stream:           true,
 					Stop:             nil,
 					PresencePenalty:  0,
 					FrequencyPenalty: 0,
@@ -260,6 +260,7 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 				if err != nil {
 					return nil, err
 				}
+
 				steam := writeflow.NewSteamResponse[string]()
 				go func() {
 					var content string
@@ -325,7 +326,7 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 					})
 				}
 
-				return map[string]interface{}{"default": content, "function_call": ""}, nil
+				return map[string]interface{}{"default": content, "function_call": rsp.Choices[0].Message.FunctionCall}, nil
 			}
 		}),
 	}
