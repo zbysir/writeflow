@@ -1,17 +1,16 @@
-package cmd
+package writeflow
 
 import (
 	"context"
 	"fmt"
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
-	"github.com/zbysir/writeflow/internal/cmd/gosymbols"
-	"github.com/zbysir/writeflow/pkg/schema"
+	"github.com/zbysir/writeflow/pkg/writeflow/gosymbols"
 	"io/fs"
 )
 
 type GoScriptCMD struct {
-	innerCMD schema.CMDer
+	innerCMD CMDer
 }
 
 // src:
@@ -19,7 +18,7 @@ type GoScriptCMD struct {
 // import "context"
 // func Exec(ctx context.Context, params []interface{}) (rsp []interface{}, err error) {}
 
-func NewGoScript(fs fs.FS, goPath string, src string) (*GoScriptCMD, error) {
+func NewGoScriptCMD(fs fs.FS, goPath string, src string) (*GoScriptCMD, error) {
 	i := interp.New(interp.Options{
 		GoPath:               goPath,
 		SourcecodeFilesystem: fs,
@@ -52,9 +51,9 @@ func NewGoScript(fs fs.FS, goPath string, src string) (*GoScriptCMD, error) {
 	config := execFun.Interface()
 
 	inner := config.(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error))
-	return &GoScriptCMD{innerCMD: ExecFun(inner)}, nil
+	return &GoScriptCMD{innerCMD: ExecFunMap(inner)}, nil
 }
 
-func (g *GoScriptCMD) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+func (g *GoScriptCMD) Exec(ctx context.Context, params Map) (rsp Map, err error) {
 	return g.innerCMD.Exec(ctx, params)
 }

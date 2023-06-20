@@ -3,7 +3,6 @@ package writeflow
 import (
 	"context"
 	"fmt"
-	"github.com/zbysir/writeflow/pkg/schema"
 )
 
 type WriteFlow struct {
@@ -93,11 +92,7 @@ func (w *WriteFlow) GetComponentByKey(key string) (c Component, exist bool, err 
 	return c, false, nil
 }
 
-func (w *WriteFlow) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
-	return w.core.ExecFlow(ctx, flow, initParams, parallel)
-}
-
-func (w *WriteFlow) ExecNode(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
+func (w *WriteFlow) ExecNode(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp Map, err error) {
 	return w.core.ExecNode(ctx, flow, initParams, parallel)
 }
 
@@ -106,10 +101,10 @@ func (w *WriteFlow) ExecFlowAsync(ctx context.Context, flow *Flow, initParams ma
 }
 
 type panicCmd struct {
-	i schema.CMDer
+	i CMDer
 }
 
-func (p *panicCmd) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+func (p *panicCmd) Exec(ctx context.Context, params Map) (rsp Map, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("cmd panic: %v", e)
@@ -119,6 +114,6 @@ func (p *panicCmd) Exec(ctx context.Context, params map[string]interface{}) (rsp
 	return p.i.Exec(ctx, params)
 }
 
-func HandlePanicCmd(der schema.CMDer) schema.CMDer {
+func HandlePanicCmd(der CMDer) CMDer {
 	return &panicCmd{i: der}
 }

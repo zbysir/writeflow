@@ -11,6 +11,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/samber/lo v1.38.1
+	github.com/sashabaranov/go-openai v1.11.2
 	github.com/sjy3/go-keylock v0.0.0-20210305015907-e987e967d5a4
 	github.com/spf13/cast v1.5.0
 	github.com/spf13/cobra v1.7.0
@@ -20,7 +21,7 @@ require (
 	github.com/tmc/langchaingo v0.0.0-20230522045238-97426d911826
 	github.com/traefik/yaegi v0.15.1
 	github.com/zbysir/gojsx v0.4.8
-	github.com/zbysir/writeflow-ui v0.0.0-20230612112006-b60877e414e7
+	github.com/zbysir/writeflow-ui v0.0.0-20230615144936-5b30d929d0c7
 	go.uber.org/zap v1.21.0
 )
 

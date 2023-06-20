@@ -64,13 +64,13 @@ func (u *Flow) RunFlow(ctx context.Context, flowId int64, params map[string]inte
 	return u.RunFlowByDetail(ctx, flow, params, parallel)
 }
 
-func (u *Flow) RunFlowSync(ctx context.Context, flowId int64, params map[string]interface{}, parallel int, outputNodeId string) (rsp map[string]interface{}, err error) {
+func (u *Flow) RunFlowSync(ctx context.Context, flowId int64, params map[string]interface{}, parallel int, outputNodeId string) (rsp writeflow.Map, err error) {
 	flow, exist, err := u.flowRepo.GetFlowById(ctx, flowId)
 	if err != nil {
-		return nil, err
+		return writeflow.Map{}, err
 	}
 	if !exist {
-		return nil, fmt.Errorf("flow not exist")
+		return writeflow.Map{}, fmt.Errorf("flow not exist")
 	}
 
 	if outputNodeId != "" {
@@ -127,10 +127,10 @@ func (u *Flow) RunFlowByDetail(ctx context.Context, flow *model.Flow, params map
 	return
 }
 
-func (u *Flow) RunFlowByDetailSync(ctx context.Context, flow *model.Flow, params map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
+func (u *Flow) RunFlowByDetailSync(ctx context.Context, flow *model.Flow, params map[string]interface{}, parallel int) (rsp writeflow.Map, err error) {
 	f, err := model.FlowFromModel(flow)
 	if err != nil {
-		return nil, err
+		return writeflow.Map{}, err
 	}
 
 	return u.wirteflow.ExecNode(ctx, f, params, parallel)

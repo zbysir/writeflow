@@ -1,4 +1,4 @@
-package cmd
+package writeflow
 
 import (
 	"context"
@@ -14,7 +14,7 @@ type JavaScriptCMD struct {
 // src:
 // function exec(params){return params}
 
-func NewJavaScript(src string) (*JavaScriptCMD, error) {
+func NewJavaScriptCMD(src string) (*JavaScriptCMD, error) {
 	return &JavaScriptCMD{src: src}, nil
 }
 
@@ -32,21 +32,22 @@ func newJsRuntime(src string) (*goja.Runtime, goja.Callable, error) {
 	return r, c, nil
 }
 
-func (g *JavaScriptCMD) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+func (g *JavaScriptCMD) Exec(ctx context.Context, params Map) (rsp Map, err error) {
 	r, call, err := newJsRuntime(g.src)
 	if err != nil {
-		return nil, err
+		return Map{}, err
 	}
 
 	rspj, err := call(nil, r.ToValue(params))
 	if err != nil {
-		return nil, err
+		return Map{}, err
 	}
-	rsp = map[string]interface{}{}
+	rspr := map[string]interface{}{}
 	err = r.ExportTo(rspj, &rsp)
 	if err != nil {
-		return nil, fmt.Errorf("export javascript return to map[string]interface{}")
+		return Map{}, fmt.Errorf("export javascript return to map[string]interface{}")
 	}
 
+	rsp = NewMap(rspr)
 	return
 }

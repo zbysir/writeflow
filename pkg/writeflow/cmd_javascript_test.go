@@ -1,4 +1,4 @@
-package cmd
+package writeflow
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestJavascript(t *testing.T) {
-	s, _ := NewJavaScript("function exec(params) {return {default:params.a}}")
+	s, _ := NewJavaScriptCMD("function exec(params) {return {default:params.a}}")
 	ctx := context.Background()
 	r, err := s.Exec(ctx, map[string]interface{}{"a": 1})
 	if err != nil {

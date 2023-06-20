@@ -2,8 +2,6 @@ package model
 
 import (
 	"fmt"
-	"github.com/zbysir/writeflow/internal/cmd"
-	"github.com/zbysir/writeflow/pkg/schema"
 	"github.com/zbysir/writeflow/pkg/writeflow"
 )
 
@@ -35,7 +33,7 @@ func FlowFromModel(m *Flow) (*writeflow.Flow, error) {
 		}
 
 		cmdName := node.Type
-		var cmder schema.CMDer
+		var cmder writeflow.CMDer
 		switch node.Data.Source.CmdType {
 		case writeflow.NothingCmd:
 			cmdName = string(writeflow.NothingCmd)
@@ -48,7 +46,7 @@ func FlowFromModel(m *Flow) (*writeflow.Flow, error) {
 			}
 
 			var err error
-			cmder, err = cmd.NewGoScript(nil, "", script)
+			cmder, err = writeflow.NewGoScriptCMD(nil, "", script)
 			if err != nil {
 				return nil, writeflow.NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
 			}
@@ -61,7 +59,7 @@ func FlowFromModel(m *Flow) (*writeflow.Flow, error) {
 			}
 
 			var err error
-			cmder, err = cmd.NewJavaScript(script)
+			cmder, err = writeflow.NewJavaScriptCMD(script)
 			if err != nil {
 				return nil, writeflow.NewExecNodeError(fmt.Errorf("parse script error: %v", err), node.Id)
 			}

@@ -1,34 +1,33 @@
-package cmd
+package writeflow
 
 import (
 	"context"
 	"fmt"
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
-	"github.com/zbysir/writeflow/pkg/schema"
 	"io/fs"
 	"reflect"
 )
 
 type GoPkgCMD struct {
-	innerCMD schema.CMDer
+	innerCMD CMDer
 }
 
-type NewCmd func(config map[string]interface{}) (schema.CMDer, error)
+type NewCmd func(config map[string]interface{}) (CMDer, error)
 
 type _CMDer struct {
 	IValue interface{}
-	WExec  func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
+	WExec  func(ctx context.Context, params Map) (rsp Map, err error)
 }
 
-func (p _CMDer) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+func (p _CMDer) Exec(ctx context.Context, params Map) (rsp Map, err error) {
 	return p.WExec(ctx, params)
 }
 
 func Symbols() map[string]map[string]reflect.Value {
 	return map[string]map[string]reflect.Value{
 		"github.com/zbysir/writeflow/pkg/schema/schema": {
-			"CMDer":  reflect.ValueOf((*schema.CMDer)(nil)),
+			"CMDer":  reflect.ValueOf((*CMDer)(nil)),
 			"_CMDer": reflect.ValueOf((*_CMDer)(nil)),
 			//"Schema":       reflect.ValueOf((*schema.Schema)(nil)),
 			//"SchemaParams": reflect.ValueOf((*schema.SchemaParams)(nil)),
@@ -69,10 +68,10 @@ func NewGoPkg(fs fs.FS, goPath string, packagePath string) (*GoPkgCMD, error) {
 
 	config := configi.Interface()
 
-	inner := newFun.Call([]reflect.Value{reflect.ValueOf(config)})[0].Interface().(schema.CMDer)
+	inner := newFun.Call([]reflect.Value{reflect.ValueOf(config)})[0].Interface().(CMDer)
 	return &GoPkgCMD{innerCMD: inner}, nil
 }
 
-func (g *GoPkgCMD) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+func (g *GoPkgCMD) Exec(ctx context.Context, params Map) (rsp Map, err error) {
 	return g.innerCMD.Exec(ctx, params)
 }

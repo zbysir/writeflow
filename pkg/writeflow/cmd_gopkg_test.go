@@ -1,4 +1,4 @@
-package cmd
+package writeflow
 
 import (
 	"context"
@@ -10,7 +10,7 @@ func TestGoCMd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rr, err := c.Exec(context.Background(), map[string]interface{}{"_args": []interface{}{"a", "b"}})
+	rr, err := c.Exec(context.Background(), NewMap(map[string]interface{}{"_args": []interface{}{"a", "b"}}))
 	if err != nil {
 		t.Fatal(err)
 	}

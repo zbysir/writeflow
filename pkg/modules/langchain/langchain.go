@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/zbysir/writeflow/internal/cmd"
-	llms2 "github.com/zbysir/writeflow/internal/pkg/langchaingo/llms"
-	openai2 "github.com/zbysir/writeflow/internal/pkg/langchaingo/llms/openai"
-	schema2 "github.com/zbysir/writeflow/internal/pkg/langchaingo/schema"
-	"github.com/zbysir/writeflow/pkg/schema"
+	"github.com/sashabaranov/go-openai"
+	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/pkg/writeflow"
+	"io"
 	"reflect"
 )
 
@@ -70,7 +68,42 @@ func (l *LangChain) Components() []writeflow.Component {
 							"zh-CN": "Default",
 						},
 						Key:  "default",
-						Type: "langchain/llm",
+						Type: "langchain/openai",
+					},
+				},
+			},
+		},
+		{
+			Id:       0,
+			Type:     "chat_memory",
+			Category: "llm",
+			Data: writeflow.ComponentData{
+				Name: map[string]string{
+					"zh-CN": "ChatMemory",
+				},
+				Icon:        "",
+				Description: map[string]string{},
+				Source: writeflow.ComponentSource{
+					CmdType:    writeflow.BuiltInCmd,
+					BuiltinCmd: "chat_memory",
+				},
+				InputParams: []writeflow.NodeInputParam{
+					{
+						Name: map[string]string{
+							"zh-CN": "SessionID",
+						},
+						Key:      "session_id",
+						Type:     "string",
+						Optional: true,
+					},
+				},
+				OutputAnchors: []writeflow.NodeOutputAnchor{
+					{
+						Name: map[string]string{
+							"zh-CN": "Default",
+						},
+						Key:  "default",
+						Type: "langchain/chat_memory",
 					},
 				},
 			},
@@ -100,6 +133,15 @@ func (l *LangChain) Components() []writeflow.Component {
 					{
 						InputType: writeflow.NodeInputAnchor,
 						Name: map[string]string{
+							"zh-CN": "ChatMemory",
+						},
+						Key:      "chat_memory",
+						Type:     "langchain/chat_memory",
+						Optional: true,
+					},
+					{
+						InputType: writeflow.NodeInputAnchor,
+						Name: map[string]string{
 							"zh-CN": "Functions",
 						},
 						Key:      "functions",
@@ -117,10 +159,16 @@ func (l *LangChain) Components() []writeflow.Component {
 				},
 				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
+						Name: map[string]string{
+							"zh-CN": "Default",
+						},
 						Key:  "default",
 						Type: "string",
 					},
 					{
+						Name: map[string]string{
+							"zh-CN": "FunctionCall",
+						},
 						Key:  "function_call",
 						Type: "any",
 					},
@@ -130,26 +178,33 @@ func (l *LangChain) Components() []writeflow.Component {
 	}
 }
 
-func (l *LangChain) Cmd() map[string]schema.CMDer {
-	return map[string]schema.CMDer{
-		"new_openai": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+func (l *LangChain) Cmd() map[string]writeflow.CMDer {
+	return map[string]writeflow.CMDer{
+		"new_openai": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			key := params["api_key"].(string)
-			ll, err := openai2.New(openai2.WithToken(key), openai2.WithModel("gpt-3.5-turbo-0613"))
-			if err != nil {
-				return nil, err
-			}
-
-			return map[string]interface{}{"default": ll}, nil
+			client := openai.NewClient(key)
+			return map[string]interface{}{"default": client}, nil
 		}),
-		"langchain_call": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
-			llm := params["llm"].(llms2.ChatLLM)
+		// chat_memory 存储对话记录
+		"chat_memory": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+			idi := params["session_id"]
+			if idi == nil {
+				return map[string]interface{}{"default": NewMemoryChatMemory("")}, nil
+			}
+			id := idi.(string)
+
+			memory := NewMemoryChatMemory(id)
+			return map[string]interface{}{"default": memory}, nil
+		}),
+		"langchain_call": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+			openaiClient := params["llm"].(*openai.Client)
 			promptI := params["prompt"]
 			functionI := params["functions"]
 			if promptI == nil {
 				return nil, fmt.Errorf("prompt is nil")
 			}
 			prompt := promptI.(string)
-			var functions []llms2.Function
+			var functions []*openai.FunctionDefine
 			if functionI != nil {
 				function := functionI.(string)
 				err = json.Unmarshal([]byte(function), &functions)
@@ -158,14 +213,73 @@ func (l *LangChain) Cmd() map[string]schema.CMDer {
 				}
 			}
 
-			s, err := llm.Chat(ctx, []schema2.ChatMessage{
-				schema2.HumanChatMessage{Text: prompt},
-			}, llms2.WithFunctions(functions), llms2.WithModel("gpt-3.5-turbo-0613"))
+			var messages []openai.ChatCompletionMessage
+			var chatMemory ChatMemory
+			if params["chat_memory"] != nil {
+				chatMemory = params["chat_memory"].(ChatMemory)
+			}
+
+			if chatMemory != nil {
+				messages = append(messages, chatMemory.GetHistory(ctx)...)
+			}
+
+			userMsg := openai.ChatCompletionMessage{Content: prompt, Role: openai.ChatMessageRoleUser}
+			if chatMemory != nil {
+				chatMemory.AppendHistory(ctx, userMsg)
+			}
+			messages = append(messages, userMsg)
+			s, err := openaiClient.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+				Model:            "gpt-3.5-turbo-0613",
+				Messages:         messages,
+				MaxTokens:        2000,
+				Temperature:      0,
+				TopP:             0,
+				N:                0,
+				Stream:           true,
+				Stop:             nil,
+				PresencePenalty:  0,
+				FrequencyPenalty: 0,
+				LogitBias:        nil,
+				User:             "",
+				Functions:        functions,
+				FunctionCall:     "",
+			})
 			if err != nil {
 				return nil, err
 			}
+			steam := writeflow.NewSteamResponse[string]()
+			go func() {
+				var content string
+				for {
+					recv, err := s.Recv()
+					if err != nil {
+						if err != io.EOF {
+							log.Errorf("s.Recv() error: %v", err)
+							break
+						}
+						steam.Append("", err)
+						break
+					}
+					if len(recv.Choices) == 0 {
+						steam.Append("", fmt.Errorf("recv.Choices is empty"))
+						log.Errorf("recv.Choices is empty")
+						break
+					}
+					c := recv.Choices[0].Delta.Content
+					content += c
+					steam.Append(content, nil)
+				}
+				steam.Append("", io.EOF)
 
-			return map[string]interface{}{"default": s.Message.Text, "function_call": s.Message.FunctionCall}, nil
+				if chatMemory != nil {
+					chatMemory.AppendHistory(ctx, openai.ChatCompletionMessage{
+						Role:    openai.ChatMessageRoleAssistant,
+						Content: content,
+					})
+				}
+			}()
+
+			return map[string]interface{}{"default": steam, "function_call": ""}, nil
 		}),
 	}
 }

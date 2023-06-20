@@ -1,6 +1,12 @@
-package cmd
+package writeflow
 
-import "context"
+import (
+	"context"
+)
+
+type CMDer interface {
+	Exec(ctx context.Context, params Map) (rsp Map, err error)
+}
 
 type SchemaParams struct {
 	Key  string `json:"key" yaml:"key"`
@@ -18,8 +24,23 @@ type Schema struct {
 	DescLocales map[string]string `json:"desc_locales,omitempty" yaml:"desc_locales"`
 }
 
-type ExecFun func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
+type ExecFun func(ctx context.Context, params Map) (rsp Map, err error)
 
-func (e ExecFun) Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+func (e ExecFun) Exec(ctx context.Context, params Map) (rsp Map, err error) {
 	return e(ctx, params)
+}
+
+type ExecFunMap func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
+
+func (e ExecFunMap) Exec(ctx context.Context, params Map) (rsp Map, err error) {
+	rr := map[string]interface{}{}
+	params.Range(func(key any, value interface{}) bool {
+		rr[key.(string)] = value
+		return true
+	})
+	r, err := e(ctx, rr)
+	if err != nil {
+		return Map{}, err
+	}
+	return NewMap(r), nil
 }

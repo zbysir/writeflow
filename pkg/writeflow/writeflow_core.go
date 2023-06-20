@@ -7,26 +7,59 @@ import (
 	"github.com/samber/lo"
 	go_keylock "github.com/sjy3/go-keylock"
 	"github.com/spf13/cast"
-	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/internal/pkg/log"
-	"github.com/zbysir/writeflow/pkg/schema"
+	"io"
 	"sort"
 	"sync"
 	"time"
 )
 
 type WriteFlowCore struct {
-	cmds map[string]schema.CMDer
+	cmds map[string]CMDer
 }
 
 func NewWriteFlowCore() *WriteFlowCore {
 	return &WriteFlowCore{
-		cmds: map[string]schema.CMDer{},
+		cmds: map[string]CMDer{},
 	}
 }
 
-func (f *WriteFlowCore) RegisterCmd(key string, cmd schema.CMDer) {
+func (f *WriteFlowCore) RegisterCmd(key string, cmd CMDer) {
 	f.cmds[key] = cmd
+}
+
+type SteamResponse[T any] struct {
+	done      bool
+	c         chan T
+	err       error
+	closeOnce sync.Once
+}
+
+func NewSteamResponse[T any]() *SteamResponse[T] {
+	return &SteamResponse[T]{c: make(chan T, 100)}
+}
+
+type SteamResponseStr SteamResponse[string]
+
+func (s *SteamResponse[T]) Recv() (T, error) {
+	d, ok := <-s.c
+	if ok {
+		return d, nil
+	} else {
+		return d, s.err
+	}
+}
+
+func (s *SteamResponse[T]) Append(a T, e error) {
+	if e == nil {
+		s.c <- a
+		return
+	} else {
+		s.err = e
+		s.closeOnce.Do(func() {
+			close(s.c)
+		})
+	}
 }
 
 type NodeInputType = string
@@ -69,7 +102,7 @@ type NodeAnchorTarget struct {
 type Node struct {
 	Id       string
 	Cmd      string
-	BuiltCmd schema.CMDer // go script, js script
+	BuiltCmd CMDer // go script, js script
 	Inputs   NodeInputs
 }
 
@@ -137,29 +170,26 @@ func (d *Flow) UsedComponents() (componentType []string) {
 	return componentType
 }
 
-func (f *WriteFlowCore) ExecFlow(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+type Map struct {
+	*sync.Map
+}
 
-	result, err := f.ExecFlowAsync(ctx, flow, initParams, parallel)
-	if err != nil {
-		return nil, err
+func (m *Map) Raw() map[string]interface{} {
+	if m.Map == nil {
+		return nil
 	}
-
-	for r := range result {
-		if r.NodeId == flow.OutputNodeId && r.Status == StatusSuccess {
-			rsp = r.Result
-			break
-		}
-	}
-
-	return
+	r := map[string]interface{}{}
+	m.Range(func(key, value interface{}) bool {
+		r[key.(string)] = value
+		return true
+	})
+	return r
 }
 
 func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (results chan NodeStatusLog, err error) {
 	// use params node to get init params
-	f.RegisterCmd("_params", cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
-		return initParams, nil
+	f.RegisterCmd("_params", NewFun(func(ctx context.Context, _ Map) (Map, error) {
+		return NewMap(initParams), nil
 	}))
 
 	fr := newRunner(f.cmds, flow, parallel)
@@ -188,16 +218,16 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 	return
 }
 
-func (f *WriteFlowCore) ExecNode(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp map[string]interface{}, err error) {
+func (f *WriteFlowCore) ExecNode(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp Map, err error) {
 	// use params node to get init params
-	f.RegisterCmd("_params", cmd.NewFun(func(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
-		return initParams, nil
+	f.RegisterCmd("_params", NewFun(func(ctx context.Context, _ Map) (Map, error) {
+		return NewMap(initParams), nil
 	}))
 
 	fr := newRunner(f.cmds, flow, parallel)
 	_, ok := flow.Nodes[flow.OutputNodeId]
 	if !ok {
-		return nil, fmt.Errorf("output node %s not found", flow.OutputNodeId)
+		return Map{}, fmt.Errorf("output node %s not found", flow.OutputNodeId)
 	}
 
 	return fr.ExecNode(ctx, flow.OutputNodeId, false, nil)
@@ -205,8 +235,8 @@ func (f *WriteFlowCore) ExecNode(ctx context.Context, flow *Flow, initParams map
 
 type runner struct {
 	flowDef     *Flow
-	cmd         map[string]schema.CMDer           // id -> cmder
-	cmdRspCache map[string]map[string]interface{} // nodeId->key->value
+	cmd         map[string]CMDer                  // id -> cmder
+	cmdRspCache map[string]Map                    // nodeId->key->value
 	inject      map[string]map[string]interface{} // nodeId->key->value
 	l           sync.RWMutex                      // lock for map
 	keyLock     *go_keylock.KeyLock               // lock for cmdRspCache (防止并发下缓存穿透)
@@ -217,10 +247,10 @@ func (r *runner) getRspCache(nodeId string, key string) (v interface{}, exist bo
 	r.l.RLock()
 	defer r.l.RUnlock()
 
-	if r.cmdRspCache[nodeId] == nil {
+	if r.cmdRspCache[nodeId].Map == nil {
 		return nil, false
 	}
-	v, exist = r.cmdRspCache[nodeId][key]
+	v, exist = r.cmdRspCache[nodeId].Load(key)
 	return
 }
 
@@ -235,7 +265,7 @@ func (r *runner) getInject(nodeId string, key string) (v interface{}, exist bool
 	return
 }
 
-func (r *runner) setRspCache(nodeId string, rsp map[string]interface{}) {
+func (r *runner) setRspCache(nodeId string, rsp Map) {
 	r.l.Lock()
 	defer r.l.Unlock()
 
@@ -247,11 +277,11 @@ func (r *runner) setRspItemCache(nodeId string, k string, v interface{}) {
 	r.l.Lock()
 	defer r.l.Unlock()
 
-	if r.cmdRspCache[nodeId] == nil {
-		r.cmdRspCache[nodeId] = map[string]interface{}{}
+	if r.cmdRspCache[nodeId].Map == nil {
+		r.cmdRspCache[nodeId] = NewMap(nil)
 	}
 
-	r.cmdRspCache[nodeId][k] = v
+	r.cmdRspCache[nodeId].Store(k, v)
 	return
 }
 
@@ -267,11 +297,11 @@ func (r *runner) setInject(nodeId string, k string, v interface{}) {
 	return
 }
 
-func newRunner(cmd map[string]schema.CMDer, flowDef *Flow, parallel int) *runner {
+func newRunner(cmd map[string]CMDer, flowDef *Flow, parallel int) *runner {
 	return &runner{
 		flowDef:     flowDef,
 		cmd:         cmd,
-		cmdRspCache: map[string]map[string]interface{}{},
+		cmdRspCache: map[string]Map{},
 		inject:      map[string]map[string]interface{}{},
 		l:           sync.RWMutex{},
 		keyLock:     go_keylock.NewKeyLock(),
@@ -337,12 +367,20 @@ var ErrNodeUnreachable = errors.New("node unreachable")
 // 如果让 Cmd 处理懒值会导致 Cmd 的编写逻辑变得复杂，同时还需要处理函数执行异常，不方便用户编写。
 // 而逻辑分支相对固定，可以内置实现。
 
-func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNodeStatusChange func(result NodeStatusLog)) (rsp map[string]interface{}, err error) {
+func NewMap(s map[string]interface{}) Map {
+	sm := &sync.Map{}
+	for k, v := range s {
+		sm.Store(k, v)
+	}
+	return Map{Map: sm}
+}
+
+func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNodeStatusChange func(result NodeStatusLog)) (rsp Map, err error) {
 	start := time.Now()
 	defer func() {
 		if onNodeStatusChange != nil {
 			if err != nil {
-				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), nil, start, time.Now()))
+				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), Map{}, start, time.Now()))
 			} else {
 				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusSuccess, "", rsp, start, time.Now()))
 			}
@@ -356,7 +394,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 	nodeDef, ok := f.flowDef.Nodes[nodeId]
 	if !ok {
 		// 可能是前段没有删除干净，所以有空，先忽略错误
-		return nil, nil
+		return Map{}, nil
 	}
 	inputs := nodeDef.Inputs
 
@@ -394,10 +432,11 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 						//f.keyLock.Unlock(lockKey)
 						return nil, err
 					}
-					if rsps == nil {
-						continue
-					}
-					values = append(values, rsps[i.OutputKey])
+					//if rsps == nil {
+					//	continue
+					//}
+					value, _ := rsps.Load(i.OutputKey)
+					values = append(values, value)
 
 					f.setRspCache(i.NodeId, rsps)
 					//log.Infof("----Unlock %s", lockKey)
@@ -422,10 +461,10 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 	if ok {
 		enable, err := calcInput(enableInput, nocache)
 		if err != nil {
-			return nil, err
+			return Map{}, err
 		}
 		if cast.ToBool(cast.ToString(enable)) == false {
-			return nil, nil
+			return Map{}, nil
 		}
 	}
 
@@ -439,7 +478,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		if ok {
 			data, err = calcInput(dataInput, nocache)
 			if err != nil {
-				return nil, err
+				return Map{}, err
 			}
 		}
 
@@ -448,21 +487,21 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 
 			v, err := LookInterface(map[string]interface{}{"data": data}, condition)
 			if err != nil {
-				return nil, NewExecNodeError(fmt.Errorf("exec condition %s error: %w", condition, err), nodeId)
+				return Map{}, NewExecNodeError(fmt.Errorf("exec condition %s error: %w", condition, err), nodeId)
 			}
 
 			// ToBool can't convert int64 to bool
 			if cast.ToBool(cast.ToString(v)) {
 				r, err := calcInput(input, nocache)
 				if err != nil {
-					return nil, err
+					return Map{}, err
 				}
 
-				return map[string]interface{}{"default": r, "branch": input.Key}, nil
+				return NewMap(map[string]interface{}{"default": r, "branch": input.Key}), nil
 			}
 		}
 
-		rsp = map[string]interface{}{"default": nil, "branch": ""}
+		rsp = NewMap(map[string]interface{}{"default": nil, "branch": ""})
 	case "_for":
 		// for 的执行逻辑：
 		//  找到 input 依赖 forOutput.item 的节点，然后执行它，会递归执行到 forInput 节点，然后 forInput 会返回迭代值。
@@ -473,7 +512,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			if input.Key == "data" {
 				data, err = calcInput(input, nocache)
 				if err != nil {
-					return nil, err
+					return Map{}, err
 				}
 			} else if input.Key == "item" {
 				itemInput = input
@@ -496,17 +535,16 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		})
 
 		if err != nil {
-			return nil, NewExecNodeError(fmt.Errorf("for %T error: %w", data, err), nodeId)
+			return Map{}, NewExecNodeError(fmt.Errorf("for %T error: %w", data, err), nodeId)
 		}
 
 		if forError != nil {
-			return nil, NewExecNodeError(fmt.Errorf("for %T error: %w", data, forError), nodeId)
+			return Map{}, NewExecNodeError(fmt.Errorf("for %T error: %w", data, forError), nodeId)
 		}
 
-		rsp = map[string]interface{}{"default": rsps}
+		rsp = NewMap(map[string]interface{}{"default": rsps})
 	default:
-		dependValue := map[string]interface{}{}
-		var dependValueLock sync.Mutex
+		dependValue := NewMap(nil)
 		var inputKeys []string
 
 		var wg sync.WaitGroup
@@ -532,30 +570,26 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					if err != nil {
 						calcErr = err
 					} else {
-						dependValueLock.Lock()
-						dependValue[i.Key] = r
-						dependValueLock.Unlock()
+						dependValue.Store(i.Key, r)
 					}
 				}(i)
 			default:
 				r, err := calcInput(i, nocache)
 				if err != nil {
 					log.Errorf("calcInput %v error: %v", nodeId, err)
-					return nil, err
+					return Map{}, err
 				}
-				dependValueLock.Lock()
-				dependValue[i.Key] = r
-				dependValueLock.Unlock()
+				dependValue.Store(i.Key, r)
 			}
 		}
 		wg.Wait()
 		if calcErr != nil {
-			return nil, calcErr
+			return Map{}, calcErr
 		}
 
 		cmdName := nodeDef.Cmd
 		if cmdName == "" {
-			return nil, NewExecNodeError(fmt.Errorf("cmd is not defined"), nodeDef.Id)
+			return Map{}, NewExecNodeError(fmt.Errorf("cmd is not defined"), nodeDef.Id)
 		}
 		cmder := nodeDef.BuiltCmd
 		if cmder == nil {
@@ -566,19 +600,52 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					// 如果不需要执行任何命令，则直接返回 input
 					return dependValue, nil
 				}
-				return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmdName), nodeDef.Id)
+				return Map{}, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmdName), nodeDef.Id)
 			}
 		}
 
 		// 只有自定义 cmd 才需要报告 running 状态，特殊的 _for, _switch 不需要。
 		if onNodeStatusChange != nil {
-			onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", nil, start, time.Time{}))
+			onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", Map{}, start, time.Time{}))
 		}
 
 		rsp, err = HandlePanicCmd(cmder).Exec(WithInputKeys(ctx, inputKeys), dependValue)
 		if err != nil {
-			return nil, NewExecNodeError(err, nodeDef.Id)
+			return Map{}, NewExecNodeError(err, nodeDef.Id)
 		}
+
+		// 处理 steam
+		wg = sync.WaitGroup{}
+
+
+		rsp.Range(func(k, v interface{}) bool {
+			if steam, ok := v.(*SteamResponse[string]); ok {
+				rsp.Store(k, "")
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for {
+						t, err := steam.Recv()
+						if err != nil {
+							if err == io.EOF {
+								onNodeStatusChange(NewNodeStatusLog(nodeId, StatusSuccess, "", rsp, start, time.Now()))
+							} else {
+								onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), rsp, start, time.Now()))
+							}
+							break
+						} else {
+							rsp.Store(k, t)
+							log.Infof("rsp: %+v", rsp.Raw())
+
+							onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", rsp, start, time.Now()))
+						}
+					}
+				}()
+			}
+
+			return true
+		})
+		wg.Wait()
 	}
 
 	//log.Printf("dependValue: %+v", dependValue)

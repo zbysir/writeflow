@@ -1,11 +1,11 @@
-package cmd
+package writeflow
 
 import (
 	"testing"
 )
 
 func TestNewGoScript(t *testing.T) {
-	cmd, err := NewGoScript(nil, "", `package main
+	cmd, err := NewGoScriptCMD(nil, "", `package main
 					import (
 				
 				"context"

@@ -121,21 +121,22 @@ type NodeStatusLog struct {
 	NodeId string     `json:"node_id"`
 	Status NodeStatus `json:"status"`
 	// todo result has can't marshal type
-	Error  string                 `json:"error,omitempty"`
-	Result map[string]interface{} `json:"result,omitempty"`
-	RunAt  time.Time              `json:"run_at"`
-	EndAt  time.Time              `json:"end_at,omitempty"`
-	Spend  string                 `json:"spend,omitempty"`
+	Error     string      `json:"error,omitempty"`
+	ResultRaw Map         `json:"-"`
+	Result    interface{} `json:"result,omitempty"`
+	RunAt     time.Time   `json:"run_at"`
+	EndAt     time.Time   `json:"end_at,omitempty"`
+	Spend     string      `json:"spend,omitempty"`
 }
 
-func NewNodeStatusLog(nodeId string, status NodeStatus, error string, result map[string]interface{}, runAt time.Time, endAt time.Time) NodeStatusLog {
+func NewNodeStatusLog(nodeId string, status NodeStatus, error string, result Map, runAt time.Time, endAt time.Time) NodeStatusLog {
 	s := NodeStatusLog{
-		NodeId: nodeId,
-		Status: status,
-		Error:  error,
-		Result: result,
-		RunAt:  runAt,
-		EndAt:  endAt}
+		NodeId:    nodeId,
+		Status:    status,
+		Error:     error,
+		ResultRaw: result,
+		RunAt:     runAt,
+		EndAt:     endAt}
 
 	if !s.EndAt.IsZero() {
 		s.Spend = s.EndAt.Sub(s.RunAt).String()
@@ -145,11 +146,13 @@ func NewNodeStatusLog(nodeId string, status NodeStatus, error string, result map
 
 func (r *NodeStatusLog) Json() ([]byte, error) {
 	// 过滤私密信息
-	for k, v := range r.Result {
+	rr := r.ResultRaw.Raw()
+	for k, v := range rr {
 		if d, ok := v.(interface{ Display() string }); ok {
-			r.Result[k] = d.Display()
+			rr[k] = d.Display()
 		}
 	}
+	r.Result = rr
 
 	return json.Marshal(r)
 }

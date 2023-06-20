@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"github.com/zbysir/writeflow/internal/cmd"
 	"github.com/zbysir/writeflow/pkg/schema"
 	"testing"
 )

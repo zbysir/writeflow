@@ -229,6 +229,8 @@ github.com/rogpeppe/go-internal v1.8.0 h1:FCbCCtXNOY3UtUuHUYaghJg4y7Fd14rXifAYUA
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/samber/lo v1.38.1 h1:j2XEAqXKb09Am4ebOg31SpvzUTTs6EN3VfgeLUhPdXM=
 github.com/samber/lo v1.38.1/go.mod h1:+m/ZKRl6ClXCE2Lgf3MsQlWfh4bn1bz6CXEOxnEXnEA=
+github.com/sashabaranov/go-openai v1.11.2 h1:HuMf+18eldSKbqVblyeCQbtcqSpGVfqTshvi8Bn6zes=
+github.com/sashabaranov/go-openai v1.11.2/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
 github.com/sjy3/go-keylock v0.0.0-20210305015907-e987e967d5a4 h1:G/al0nXuuzTupicseipK2ttE41VnBuqCOMuyGLC9lYE=
 github.com/sjy3/go-keylock v0.0.0-20210305015907-e987e967d5a4/go.mod h1:j0NqMzI4kb/E9/XEeG6nPw0T3S+QzJd4SiZA4MFhWOc=
 github.com/spf13/afero v1.9.3 h1:41FoI0fD7OR7mGcKE/aOiLkGreyf8ifIOQmJANWogMk=
@@ -287,8 +289,8 @@ github.com/yuin/goldmark-meta v1.1.0 h1:pWw+JLHGZe8Rk0EGsMVssiNb/AaPMHfSRszZeUei
 github.com/yuin/goldmark-meta v1.1.0/go.mod h1:U4spWENafuA7Zyg+Lj5RqK/MF+ovMYtBvXi1lBb2VP0=
 github.com/zbysir/gojsx v0.4.8 h1:7IA1BB16GUmzjqjMdZMfUG/1le4MyoNEkf0V7QqUlGk=
 github.com/zbysir/gojsx v0.4.8/go.mod h1:3N87BdDgm1uJlnolsaWVlffIBvmr/Px1tUb7WpIAjOo=
-github.com/zbysir/writeflow-ui v0.0.0-20230612112006-b60877e414e7 h1:IBTTf2fpR/WFAYBhDknaHOctzC0q0ce9R5RTUhM3XKw=
-github.com/zbysir/writeflow-ui v0.0.0-20230612112006-b60877e414e7/go.mod h1:gabmtYJj6ZNeyJbMClOJ/EyGNdZ4h3S04Zm/PcMjMog=
+github.com/zbysir/writeflow-ui v0.0.0-20230615144936-5b30d929d0c7 h1:ShMNd4XK3hrzddDlLp4TntvAJx5mDDLs/7vOHhNX8Kk=
+github.com/zbysir/writeflow-ui v0.0.0-20230615144936-5b30d929d0c7/go.mod h1:gabmtYJj6ZNeyJbMClOJ/EyGNdZ4h3S04Zm/PcMjMog=
 go.abhg.dev/goldmark/mermaid v0.4.0 h1:yqwaYvNFbKwh9JByKzN0eDpxrUoYe8NUJvtSKY94S5M=
 go.abhg.dev/goldmark/mermaid v0.4.0/go.mod h1:L5SiQ7PedPuZY0+zaPoJ5ZnDitIYS0Obi5w7Pf02tPY=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
