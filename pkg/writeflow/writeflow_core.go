@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/samber/lo"
-	go_keylock "github.com/sjy3/go-keylock"
 	"github.com/spf13/cast"
+	"github.com/zbysir/writeflow/internal/pkg/keylock"
 	"github.com/zbysir/writeflow/internal/pkg/log"
 	"io"
 	"sort"
@@ -26,40 +26,6 @@ func NewWriteFlowCore() *WriteFlowCore {
 
 func (f *WriteFlowCore) RegisterCmd(key string, cmd CMDer) {
 	f.cmds[key] = cmd
-}
-
-type SteamResponse[T any] struct {
-	done      bool
-	c         chan T
-	err       error
-	closeOnce sync.Once
-}
-
-func NewSteamResponse[T any]() *SteamResponse[T] {
-	return &SteamResponse[T]{c: make(chan T, 100)}
-}
-
-type SteamResponseStr SteamResponse[string]
-
-func (s *SteamResponse[T]) Recv() (T, error) {
-	d, ok := <-s.c
-	if ok {
-		return d, nil
-	} else {
-		return d, s.err
-	}
-}
-
-func (s *SteamResponse[T]) Append(a T, e error) {
-	if e == nil {
-		s.c <- a
-		return
-	} else {
-		s.err = e
-		s.closeOnce.Do(func() {
-			close(s.c)
-		})
-	}
 }
 
 type NodeInputType = string
@@ -239,7 +205,7 @@ type runner struct {
 	cmdRspCache map[string]Map                    // nodeId->key->value
 	inject      map[string]map[string]interface{} // nodeId->key->value
 	l           sync.RWMutex                      // lock for map
-	keyLock     *go_keylock.KeyLock               // lock for cmdRspCache (防止并发下缓存穿透)
+	keyLock     *keylock.KeyLock                  // lock for cmdRspCache (防止并发下缓存穿透)
 	limitChan   chan struct{}
 }
 
@@ -304,7 +270,7 @@ func newRunner(cmd map[string]CMDer, flowDef *Flow, parallel int) *runner {
 		cmdRspCache: map[string]Map{},
 		inject:      map[string]map[string]interface{}{},
 		l:           sync.RWMutex{},
-		keyLock:     go_keylock.NewKeyLock(),
+		keyLock:     keylock.NewKeyLock(),
 		limitChan:   make(chan struct{}, parallel),
 	}
 }
@@ -375,18 +341,27 @@ func NewMap(s map[string]interface{}) Map {
 	return Map{Map: sm}
 }
 
+type Stack struct {
+	Nodes string
+
+	// stack
+}
+
+func (s Stack) Push(nodeId string) Stack {
+	return Stack{
+		Nodes: s.Nodes + "->" + nodeId,
+	}
+}
+
 func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNodeStatusChange func(result NodeStatusLog)) (rsp Map, err error) {
 	start := time.Now()
+	skipEmitChange := false
 	defer func() {
-		if onNodeStatusChange != nil {
+		if !skipEmitChange && onNodeStatusChange != nil {
 			if err != nil {
 				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), Map{}, start, time.Now()))
 			} else {
 				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusSuccess, "", rsp, start, time.Now()))
-			}
-		} else {
-			if err == ErrNodeUnreachable || err.Error() == ErrNodeUnreachable.Error() {
-				err = nil
 			}
 		}
 	}()
@@ -416,11 +391,17 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 				}
 
 				// 防止缓存穿透
-				//lockKey := fmt.Sprintf("%s", i.NodeId)
+				lockKey := fmt.Sprintf("%s", i.NodeId)
 
-				// todo 这里有递归调用，有死锁的问题，暂时去掉
+				// 这里有递归调用, 只能使用 tryLock
 				//log.Infof("----lock %s", lockKey)
-				//f.keyLock.Lock(lockKey)
+				for {
+					lock := f.keyLock.TryLock(lockKey)
+					if lock {
+						break
+					}
+					time.Sleep(time.Millisecond * 100)
+				}
 
 				v, ok = f.getRspCache(i.NodeId, i.OutputKey)
 				if ok && !nocache {
@@ -429,18 +410,17 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					rsps, err := f.ExecNode(ctx, i.NodeId, nocache, onNodeStatusChange)
 					if err != nil {
 						//log.Infof("----Unlock %s", lockKey)
-						//f.keyLock.Unlock(lockKey)
+
+						f.keyLock.Unlock(lockKey)
+
 						return nil, err
 					}
-					//if rsps == nil {
-					//	continue
-					//}
 					value, _ := rsps.Load(i.OutputKey)
 					values = append(values, value)
 
 					f.setRspCache(i.NodeId, rsps)
 					//log.Infof("----Unlock %s", lockKey)
-					//f.keyLock.Unlock(lockKey)
+					f.keyLock.Unlock(lockKey)
 				}
 			}
 
@@ -587,6 +567,75 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			return Map{}, calcErr
 		}
 
+		// 流式输出特殊处理，异步读取输入的流并同步状态。
+		if nodeDef.Cmd == "_output" {
+			var wg sync.WaitGroup
+			dependValue.Range(func(k, v interface{}) bool {
+				if steam, ok := v.(*StreamResponse[string]); ok {
+					wg.Add(1)
+					dependValue.Store(k, "")
+					reader := steam.NewReader()
+					go func() {
+						defer wg.Done()
+						for {
+							var t string
+							t, err = reader.Read()
+							//log.Infof("Recv: %+v %v", t, err)
+							if err != nil {
+								if err == io.EOF {
+									err = nil
+								}
+								break
+							} else {
+								dependValue.Store(k, t)
+
+								onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", dependValue, start, time.Now()))
+							}
+						}
+					}()
+				}
+
+				return true
+			})
+
+			wg.Wait()
+			if err == nil {
+				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusSuccess, "", dependValue, start, time.Now()))
+				err = nil
+			} else {
+				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), dependValue, start, time.Now()))
+			}
+
+			skipEmitChange = true
+			return dependValue, err
+		} else {
+			// 只有自定义 cmd 才需要报告 running 状态，特殊的 _for, _switch 不需要。
+			if onNodeStatusChange != nil {
+				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", Map{}, start, time.Time{}))
+			}
+
+			// 其他命令需要等待直到流完成
+			dependValue.Range(func(k, v interface{}) bool {
+				if steam, ok := v.(*StreamResponse[string]); ok {
+					var ts []string
+					ts, err = steam.NewReader().ReadAll()
+					if err != nil {
+						return false
+					}
+					if ts != nil {
+						dependValue.Store(k, ts[len(ts)-1])
+					} else {
+						dependValue.Store(k, "")
+					}
+				}
+
+				return true
+			})
+			if err != nil {
+				return Map{}, NewExecNodeError(err, nodeDef.Id)
+			}
+		}
+
 		cmdName := nodeDef.Cmd
 		if cmdName == "" {
 			return Map{}, NewExecNodeError(fmt.Errorf("cmd is not defined"), nodeDef.Id)
@@ -604,48 +653,27 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			}
 		}
 
-		// 只有自定义 cmd 才需要报告 running 状态，特殊的 _for, _switch 不需要。
-		if onNodeStatusChange != nil {
-			onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", Map{}, start, time.Time{}))
-		}
-
 		rsp, err = HandlePanicCmd(cmder).Exec(WithInputKeys(ctx, inputKeys), dependValue)
 		if err != nil {
 			return Map{}, NewExecNodeError(err, nodeDef.Id)
 		}
 
-		// 处理 steam
-		wg = sync.WaitGroup{}
-
-
-		rsp.Range(func(k, v interface{}) bool {
-			if steam, ok := v.(*SteamResponse[string]); ok {
-				rsp.Store(k, "")
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for {
-						t, err := steam.Recv()
-						if err != nil {
-							if err == io.EOF {
-								onNodeStatusChange(NewNodeStatusLog(nodeId, StatusSuccess, "", rsp, start, time.Now()))
-							} else {
-								onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), rsp, start, time.Now()))
-							}
-							break
-						} else {
-							rsp.Store(k, t)
-							log.Infof("rsp: %+v", rsp.Raw())
-
-							onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", rsp, start, time.Now()))
-						}
-					}
-				}()
-			}
-
-			return true
-		})
-		wg.Wait()
+		// 等待 steam
+		//wg = sync.WaitGroup{}
+		//
+		//rsp.Range(func(k, v interface{}) bool {
+		//	if steam, ok := v.(*StreamResponse[string]); ok {
+		//		rsp.Store(k, "")
+		//		wg.Add(1)
+		//		go func() {
+		//			defer wg.Done()
+		//			_ = steam.Wait()
+		//		}()
+		//	}
+		//
+		//	return true
+		//})
+		//wg.Wait()
 	}
 
 	//log.Printf("dependValue: %+v", dependValue)

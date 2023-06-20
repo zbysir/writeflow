@@ -21,7 +21,7 @@ require (
 	github.com/tmc/langchaingo v0.0.0-20230522045238-97426d911826
 	github.com/traefik/yaegi v0.15.1
 	github.com/zbysir/gojsx v0.4.8
-	github.com/zbysir/writeflow-ui v0.0.0-20230615144936-5b30d929d0c7
+	github.com/zbysir/writeflow-ui v0.0.0-20230619073658-fb18c2e01d4c
 	go.uber.org/zap v1.21.0
 )
 

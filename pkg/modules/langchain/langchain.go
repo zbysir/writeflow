@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/sashabaranov/go-openai"
+	"github.com/spf13/cast"
 	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/pkg/writeflow"
 	"io"
@@ -156,6 +157,15 @@ func (l *LangChain) Components() []writeflow.Component {
 						Key:  "prompt",
 						Type: "string",
 					},
+					{
+						InputType: writeflow.NodeInputLiteral,
+						Name: map[string]string{
+							"zh-CN": "流式返回",
+						},
+						Value: true,
+						Key:   "stream",
+						Type:  "bool",
+					},
 				},
 				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
@@ -203,6 +213,7 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 			if promptI == nil {
 				return nil, fmt.Errorf("prompt is nil")
 			}
+			enableSteam := cast.ToBool(params["stream"])
 			prompt := promptI.(string)
 			var functions []*openai.FunctionDefine
 			if functionI != nil {
@@ -228,58 +239,94 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 				chatMemory.AppendHistory(ctx, userMsg)
 			}
 			messages = append(messages, userMsg)
-			s, err := openaiClient.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
-				Model:            "gpt-3.5-turbo-0613",
-				Messages:         messages,
-				MaxTokens:        2000,
-				Temperature:      0,
-				TopP:             0,
-				N:                0,
-				Stream:           true,
-				Stop:             nil,
-				PresencePenalty:  0,
-				FrequencyPenalty: 0,
-				LogitBias:        nil,
-				User:             "",
-				Functions:        functions,
-				FunctionCall:     "",
-			})
-			if err != nil {
-				return nil, err
-			}
-			steam := writeflow.NewSteamResponse[string]()
-			go func() {
-				var content string
-				for {
-					recv, err := s.Recv()
-					if err != nil {
-						if err != io.EOF {
-							log.Errorf("s.Recv() error: %v", err)
+
+			if enableSteam {
+				s, err := openaiClient.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+					Model:            "gpt-3.5-turbo-0613",
+					Messages:         messages,
+					MaxTokens:        2000,
+					Temperature:      0,
+					TopP:             0,
+					N:                0,
+					Stream:           false,
+					Stop:             nil,
+					PresencePenalty:  0,
+					FrequencyPenalty: 0,
+					LogitBias:        nil,
+					User:             "",
+					Functions:        functions,
+					FunctionCall:     "",
+				})
+				if err != nil {
+					return nil, err
+				}
+				steam := writeflow.NewSteamResponse[string]()
+				go func() {
+					var content string
+					for {
+						recv, err := s.Recv()
+						if err != nil {
+							if err != io.EOF {
+								log.Errorf("s.Recv() error: %v", err)
+								break
+							}
+							steam.Close(err)
 							break
 						}
-						steam.Append("", err)
-						break
-					}
-					if len(recv.Choices) == 0 {
-						steam.Append("", fmt.Errorf("recv.Choices is empty"))
-						log.Errorf("recv.Choices is empty")
-						break
-					}
-					c := recv.Choices[0].Delta.Content
-					content += c
-					steam.Append(content, nil)
-				}
-				steam.Append("", io.EOF)
+						if len(recv.Choices) == 0 {
+							steam.Close(fmt.Errorf("recv.Choices is empty"))
+							log.Errorf("recv.Choices is empty")
+							break
+						}
 
+						c := recv.Choices[0].Delta.Content
+						if len(c) != 0 {
+							content += c
+							steam.Append(content)
+						}
+					}
+					steam.Close(io.EOF)
+
+					if chatMemory != nil {
+						chatMemory.AppendHistory(ctx, openai.ChatCompletionMessage{
+							Role:    openai.ChatMessageRoleAssistant,
+							Content: content,
+						})
+					}
+				}()
+
+				return map[string]interface{}{"default": steam, "function_call": ""}, nil
+			} else {
+				rsp, err := openaiClient.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+					Model:            "gpt-3.5-turbo-0613",
+					Messages:         messages,
+					MaxTokens:        2000,
+					Temperature:      0,
+					TopP:             0,
+					N:                0,
+					Stream:           false,
+					Stop:             nil,
+					PresencePenalty:  0,
+					FrequencyPenalty: 0,
+					LogitBias:        nil,
+					User:             "",
+					Functions:        functions,
+					FunctionCall:     "",
+				})
+				if err != nil {
+					return nil, err
+				}
+
+				content := rsp.Choices[0].Message.Content
 				if chatMemory != nil {
 					chatMemory.AppendHistory(ctx, openai.ChatCompletionMessage{
 						Role:    openai.ChatMessageRoleAssistant,
 						Content: content,
 					})
 				}
-			}()
 
-			return map[string]interface{}{"default": steam, "function_call": ""}, nil
+				return map[string]interface{}{"default": content, "function_call": ""}, nil
+			}
 		}),
 	}
 }

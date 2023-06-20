@@ -431,7 +431,7 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 				},
 				Source: writeflow.ComponentSource{
 					CmdType:    writeflow.BuiltInCmd,
-					BuiltinCmd: "raw",
+					BuiltinCmd: "_output",
 				},
 				InputParams: []writeflow.NodeInputParam{
 					{
