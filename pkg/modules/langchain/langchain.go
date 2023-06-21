@@ -62,6 +62,14 @@ func (l *LangChain) Components() []writeflow.Component {
 						Type:     "string",
 						Optional: false,
 					},
+					{
+						Name: map[string]string{
+							"zh-CN": "BaseURL",
+						},
+						Key:      "base_url",
+						Type:     "string",
+						Optional: false,
+					},
 				},
 				OutputAnchors: []writeflow.NodeOutputAnchor{
 					{
@@ -69,7 +77,7 @@ func (l *LangChain) Components() []writeflow.Component {
 							"zh-CN": "Default",
 						},
 						Key:  "default",
-						Type: "langchain/openai",
+						Type: "langchain/llm",
 					},
 				},
 			},
@@ -192,7 +200,12 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 	return map[string]writeflow.CMDer{
 		"new_openai": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			key := params["api_key"].(string)
-			client := openai.NewClient(key)
+			baseUrl := cast.ToString(params["base_url"])
+			config := openai.DefaultConfig(key)
+			if baseUrl != "" {
+				config.BaseURL = baseUrl
+			}
+			client := openai.NewClientWithConfig(config)
 			return map[string]interface{}{"default": client}, nil
 		}),
 		// chat_memory 存储对话记录
@@ -207,6 +220,7 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 			return map[string]interface{}{"default": memory}, nil
 		}),
 		"langchain_call": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+			//log.Infof("langchain_call")
 			openaiClient := params["llm"].(*openai.Client)
 			promptI := params["prompt"]
 			functionI := params["functions"]
@@ -263,12 +277,12 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 
 				steam := writeflow.NewSteamResponse[string]()
 				go func() {
+					defer s.Close()
 					var content string
 					for {
 						recv, err := s.Recv()
 						if err != nil {
-							if err != io.EOF {
-								log.Errorf("s.Recv() error: %v", err)
+							if err == io.EOF {
 								break
 							}
 							steam.Close(err)
@@ -289,10 +303,12 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 					steam.Close(nil)
 
 					if chatMemory != nil {
-						chatMemory.AppendHistory(ctx, openai.ChatCompletionMessage{
-							Role:    openai.ChatMessageRoleAssistant,
-							Content: content,
-						})
+						if content != "" {
+							chatMemory.AppendHistory(ctx, openai.ChatCompletionMessage{
+								Role:    openai.ChatMessageRoleAssistant,
+								Content: content,
+							})
+						}
 					}
 				}()
 

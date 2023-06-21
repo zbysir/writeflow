@@ -268,7 +268,7 @@ func NewExecNodeError(cause error, nodeId string) *ExecNodeError {
 }
 
 func (e *ExecNodeError) Error() string {
-	return fmt.Sprintf("exec node '%s' err: %v", e.NodeId, e.Cause)
+	return fmt.Sprintf("exec node '%s' error: %v", e.NodeId, e.Cause)
 }
 func (e *ExecNodeError) Unwrap() error {
 	return e.Cause
@@ -333,6 +333,14 @@ func (s Stack) Push(nodeId string) Stack {
 	return Stack{
 		Nodes: s.Nodes + "->" + nodeId,
 	}
+}
+
+func cloneMap(m map[string]interface{}) map[string]interface{} {
+	r := map[string]interface{}{}
+	for k, v := range m {
+		r[k] = v
+	}
+	return r
 }
 
 func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNodeStatusChange func(result NodeStatusLog)) (rsp Map, err error) {
@@ -528,11 +536,11 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		})
 
 		if err != nil {
-			return Map{}, NewExecNodeError(fmt.Errorf("for %T error: %w", data, err), nodeId)
+			return nil, NewExecNodeError(fmt.Errorf("for %T error: %w", data, err), nodeId)
 		}
 
 		if forError != nil {
-			return Map{}, NewExecNodeError(fmt.Errorf("for %T error: %w", data, forError), nodeId)
+			return nil, NewExecNodeError(fmt.Errorf("for %T error: %w", data, forError), nodeId)
 		}
 
 		rsp = NewMap(map[string]interface{}{"default": rsps})
@@ -573,7 +581,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 				r, err := calcInput(i, nocache)
 				if err != nil {
 					log.Errorf("calcInput %v error: %v", nodeId, err)
-					return Map{}, err
+					return nil, err
 				}
 				ml.Lock()
 				dependValue[i.Key] = r
@@ -589,17 +597,11 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 		// 流式输出特殊处理，异步读取输入的流并同步状态。
 		if nodeDef.Cmd == "_output" {
 			var wg sync.WaitGroup
-			dependValuex := map[string]interface{}{}
 			valueLock := sync.Mutex{}
-			for k, v := range dependValue {
-				dependValuex[k] = v
-			}
+			dependValuex := cloneMap(dependValue)
 			for k, v := range dependValue {
 				if steam, ok := v.(*StreamResponse[string]); ok {
 					wg.Add(1)
-					valueLock.Lock()
-					dependValuex[k] = ""
-					valueLock.Unlock()
 					reader := steam.NewReader()
 					go func() {
 						defer wg.Done()
@@ -617,9 +619,12 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 
 								valueLock.Lock()
 								dependValuex[k] = allContent
+
+								// NodeStatusChange 中会并发读取 map，会有 map 读写冲突
+								dd := cloneMap(dependValuex)
 								valueLock.Unlock()
 
-								onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", dependValuex, start, time.Now()))
+								onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", dd, start, time.Now()))
 							}
 						}
 					}()
@@ -630,6 +635,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			if err == nil {
 				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusSuccess, "", dependValuex, start, time.Now()))
 			} else {
+				err = NewExecNodeError(fmt.Errorf("read strem error: %w", err), nodeDef.Id)
 				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), dependValuex, start, time.Now()))
 			}
 
@@ -657,13 +663,13 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 				}
 			}
 			if err != nil {
-				return Map{}, NewExecNodeError(err, nodeDef.Id)
+				return nil, NewExecNodeError(fmt.Errorf("read strem error: %w", err), nodeDef.Id)
 			}
 		}
 
 		cmdName := nodeDef.Cmd
 		if cmdName == "" {
-			return Map{}, NewExecNodeError(fmt.Errorf("cmd is not defined"), nodeDef.Id)
+			return nil, NewExecNodeError(fmt.Errorf("cmd is not defined"), nodeDef.Id)
 		}
 		cmder := nodeDef.BuiltCmd
 		if cmder == nil {
@@ -674,13 +680,13 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					// 如果不需要执行任何命令，则直接返回 input
 					return dependValue, nil
 				}
-				return Map{}, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmdName), nodeDef.Id)
+				return nil, NewExecNodeError(fmt.Errorf("cmd '%s' not found", cmdName), nodeDef.Id)
 			}
 		}
 
 		rsp, err = HandlePanicCmd(cmder).Exec(WithInputKeys(ctx, inputKeys), dependValue)
 		if err != nil {
-			return Map{}, NewExecNodeError(err, nodeDef.Id)
+			return nil, NewExecNodeError(err, nodeDef.Id)
 		}
 	}
 

@@ -1,6 +1,7 @@
 package writeflow
 
 import (
+	"io"
 	"sync"
 	"time"
 )
@@ -35,21 +36,30 @@ type Read[T any] struct {
 }
 
 func (r *Read[T]) Read() (T, error) {
+	if r.idx < len(r.s.data) {
+		t := r.s.data[r.idx]
+		r.idx++
+		return t, nil
+	}
+
 	for {
 		select {
 		case <-r.s.done:
 			if r.idx < len(r.s.data) {
-				t := r.s.data[len(r.s.data)-1]
-				r.idx = len(r.s.data)
+				t := r.s.data[r.idx]
+				r.idx++
 				return t, nil
 			} else {
 				var t T
-				return t, r.s.err
+				if r.s.err != nil {
+					return t, r.s.err
+				}
+				return t, io.EOF
 			}
 		case <-time.After(time.Second / 20):
 			if r.idx < len(r.s.data) {
-				t := r.s.data[len(r.s.data)-1]
-				r.idx = len(r.s.data)
+				t := r.s.data[r.idx]
+				r.idx++
 				return t, nil
 			}
 		}
