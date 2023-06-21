@@ -10,6 +10,7 @@ import (
 	"github.com/zbysir/writeflow/internal/pkg/log"
 	"io"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -371,10 +372,9 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					return v, nil
 				}
 
-				// 防止缓存穿透
 				lockKey := fmt.Sprintf("%s", i.NodeId)
 
-				// 这里有递归调用, 只能使用 tryLock
+				// 加锁防止缓存穿透，这里有递归调用, 只能使用 tryLock
 				//log.Infof("----lock %s", lockKey)
 				for {
 					lock := f.keyLock.TryLock(lockKey)
@@ -603,6 +603,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 					reader := steam.NewReader()
 					go func() {
 						defer wg.Done()
+						var allContent string
 						for {
 							var t string
 							t, err = reader.Read()
@@ -612,8 +613,10 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 								}
 								break
 							} else {
+								allContent += t
+
 								valueLock.Lock()
-								dependValuex[k] = t
+								dependValuex[k] = allContent
 								valueLock.Unlock()
 
 								onNodeStatusChange(NewNodeStatusLog(nodeId, StatusRunning, "", dependValuex, start, time.Now()))
@@ -626,7 +629,6 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			wg.Wait()
 			if err == nil {
 				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusSuccess, "", dependValuex, start, time.Now()))
-				err = nil
 			} else {
 				onNodeStatusChange(NewNodeStatusLog(nodeId, StatusFailed, err.Error(), dependValuex, start, time.Now()))
 			}
@@ -648,7 +650,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 						break
 					}
 					if len(ts) != 0 {
-						dependValue[k] = ts[len(ts)-1]
+						dependValue[k] = strings.Join(ts, "")
 					} else {
 						dependValue[k] = ""
 					}

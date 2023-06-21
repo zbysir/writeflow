@@ -1,6 +1,7 @@
 package writeflow
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -28,5 +29,5 @@ func TestNewGoScript(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Logf("%+v", r["msg"])
+	assert.Equal(t, "hello bysir 18", r["msg"])
 }

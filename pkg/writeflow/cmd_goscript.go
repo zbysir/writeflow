@@ -51,7 +51,7 @@ func NewGoScriptCMD(fs fs.FS, goPath string, src string) (*GoScriptCMD, error) {
 	config := execFun.Interface()
 
 	inner := config.(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error))
-	return &GoScriptCMD{innerCMD: ExecFunMap(inner)}, nil
+	return &GoScriptCMD{innerCMD: ExecFun(inner)}, nil
 }
 
 func (g *GoScriptCMD) Exec(ctx context.Context, params Map) (rsp Map, err error) {

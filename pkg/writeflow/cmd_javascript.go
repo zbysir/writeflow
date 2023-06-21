@@ -42,12 +42,11 @@ func (g *JavaScriptCMD) Exec(ctx context.Context, params Map) (rsp Map, err erro
 	if err != nil {
 		return Map{}, err
 	}
-	rspr := map[string]interface{}{}
+	rsp = map[string]interface{}{}
 	err = r.ExportTo(rspj, &rsp)
 	if err != nil {
 		return Map{}, fmt.Errorf("export javascript return to map[string]interface{}")
 	}
 
-	rsp = NewMap(rspr)
 	return
 }

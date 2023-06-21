@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"github.com/zbysir/writeflow/pkg/schema"
 	"testing"
 )
 
@@ -157,8 +156,8 @@ func TestFor(t *testing.T) {
 		OutputNodeId: "a",
 	}
 
-	r := newRunner(map[string]schema.CMDer{
-		"add_prefix": cmd.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+	r := newRunner(map[string]CMDer{
+		"add_prefix": NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			return map[string]interface{}{"default": fmt.Sprintf("%v%v", params["prefix"], params["default"])}, nil
 		}),
 	}, &f, 1)

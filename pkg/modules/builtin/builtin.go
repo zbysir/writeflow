@@ -602,11 +602,11 @@ func Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]in
 func (b *Builtin) Cmd() map[string]writeflow.CMDer {
 	return map[string]writeflow.CMDer{
 		// 原封不动的返回节点入参
-		"raw": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+		"raw": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			//log.Infof("raw params: %+v", params)
 			return params, nil
 		}),
-		"sleep": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+		"sleep": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			//log.Infof("raw params: %+v", params)
 			s := cast.ToInt(params["second"])
 			if s != 0 {
@@ -614,10 +614,10 @@ func (b *Builtin) Cmd() map[string]writeflow.CMDer {
 			}
 			return params, nil
 		}),
-		"record": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+		"record": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			return map[string]interface{}{"default": params}, nil
 		}),
-		"template_text": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+		"template_text": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			tpl := params["template"].(string)
 
 			// match {{abc}}
@@ -643,7 +643,7 @@ func (b *Builtin) Cmd() map[string]writeflow.CMDer {
 			return map[string]interface{}{"default": s}, nil
 		}),
 		// 通过路径选择入参返回
-		"select": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+		"select": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			//log.Infof("select params: %+v", params)
 			p := params["path"]
 			if p == nil {
@@ -661,7 +661,7 @@ func (b *Builtin) Cmd() map[string]writeflow.CMDer {
 			}
 			return map[string]interface{}{"default": l}, nil
 		}),
-		"list": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+		"list": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			//log.Infof("list params: %+v", params)
 			p := params["data"]
 			if p == nil {
@@ -669,7 +669,7 @@ func (b *Builtin) Cmd() map[string]writeflow.CMDer {
 			}
 			return map[string]interface{}{"default": p}, nil
 		}),
-		"call_http": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+		"call_http": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			p := params["url"]
 			if p == nil {
 				return map[string]interface{}{"default": params}, nil

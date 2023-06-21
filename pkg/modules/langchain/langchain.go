@@ -190,13 +190,13 @@ func (l *LangChain) Components() []writeflow.Component {
 
 func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 	return map[string]writeflow.CMDer{
-		"new_openai": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+		"new_openai": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			key := params["api_key"].(string)
 			client := openai.NewClient(key)
 			return map[string]interface{}{"default": client}, nil
 		}),
 		// chat_memory 存储对话记录
-		"chat_memory": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+		"chat_memory": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			idi := params["session_id"]
 			if idi == nil {
 				return map[string]interface{}{"default": NewMemoryChatMemory("")}, nil
@@ -206,7 +206,7 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 			memory := NewMemoryChatMemory(id)
 			return map[string]interface{}{"default": memory}, nil
 		}),
-		"langchain_call": writeflow.NewFunMap(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
+		"langchain_call": writeflow.NewFun(func(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error) {
 			openaiClient := params["llm"].(*openai.Client)
 			promptI := params["prompt"]
 			functionI := params["functions"]
@@ -283,10 +283,10 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 						c := recv.Choices[0].Delta.Content
 						if len(c) != 0 {
 							content += c
-							steam.Append(content)
+							steam.Append(c)
 						}
 					}
-					steam.Close(io.EOF)
+					steam.Close(nil)
 
 					if chatMemory != nil {
 						chatMemory.AppendHistory(ctx, openai.ChatCompletionMessage{
@@ -298,8 +298,6 @@ func (l *LangChain) Cmd() map[string]writeflow.CMDer {
 
 				return map[string]interface{}{"default": steam, "function_call": ""}, nil
 			} else {
-
-				log.Infof("functions %v", functions)
 				rsp, err := openaiClient.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 					Model:            "gpt-3.5-turbo-0613",
 					Messages:         messages,
