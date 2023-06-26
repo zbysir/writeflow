@@ -7,7 +7,15 @@ import (
 
 type WriteFlow struct {
 	option
-	core *WriteFlowCore
+	modules []Module
+	core    *WriteFlowCore
+}
+
+func (w *WriteFlow) RegisterModule(m Module) {
+	w.modules = append(w.modules, m)
+	for k, v := range m.Cmd() {
+		w.core.RegisterCmd(k, v)
+	}
 }
 
 func NewWriteFlow(ops ...Option) *WriteFlow {
@@ -15,30 +23,15 @@ func NewWriteFlow(ops ...Option) *WriteFlow {
 	for _, op := range ops {
 		op(&o)
 	}
-	c := NewWriteFlowCore()
-	for _, v := range o.modules {
-		for k, v := range v.Cmd() {
-			//builtinCmd[info.NameSpace+"."+k] = v
-			c.RegisterCmd(k, v)
-		}
-	}
-
 	return &WriteFlow{
 		option: o,
-		core:   c,
+		core:   NewWriteFlowCore(),
 	}
 }
 
 type Option func(*option)
 
-func WithModules(modules ...Module) Option {
-	return func(o *option) {
-		o.modules = append(modules, o.modules...)
-	}
-}
-
 type option struct {
-	modules []Module
 }
 
 type CategoryWithComponent struct {
@@ -56,7 +49,7 @@ type Component struct {
 func (w *WriteFlow) GetComponentList() []CategoryWithComponent {
 	var components []Component
 	var categories []Category
-	for _, m := range w.option.modules {
+	for _, m := range w.modules {
 		components = append(components, m.Components()...)
 		categories = append(categories, m.Categories()...)
 	}
@@ -79,7 +72,7 @@ func (w *WriteFlow) GetComponentList() []CategoryWithComponent {
 
 func (w *WriteFlow) GetComponentByKey(key string) (c Component, exist bool, err error) {
 	var components []Component
-	for _, m := range w.option.modules {
+	for _, m := range w.modules {
 		components = append(components, m.Components()...)
 	}
 

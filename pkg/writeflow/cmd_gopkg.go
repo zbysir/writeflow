@@ -15,20 +15,10 @@ type GoPkgCMD struct {
 
 type NewCmd func(config map[string]interface{}) (CMDer, error)
 
-type _CMDer struct {
-	IValue interface{}
-	WExec  func(ctx context.Context, params Map) (rsp Map, err error)
-}
-
-func (p _CMDer) Exec(ctx context.Context, params Map) (rsp Map, err error) {
-	return p.WExec(ctx, params)
-}
-
 func Symbols() map[string]map[string]reflect.Value {
 	return map[string]map[string]reflect.Value{
 		"github.com/zbysir/writeflow/pkg/schema/schema": {
 			"CMDer":  reflect.ValueOf((*CMDer)(nil)),
-			"_CMDer": reflect.ValueOf((*_CMDer)(nil)),
 			//"Schema":       reflect.ValueOf((*schema.Schema)(nil)),
 			//"SchemaParams": reflect.ValueOf((*schema.SchemaParams)(nil)),
 		},

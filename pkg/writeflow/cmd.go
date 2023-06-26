@@ -5,7 +5,7 @@ import (
 )
 
 type CMDer interface {
-	Exec(ctx context.Context, params Map) (rsp Map, err error)
+	Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
 }
 
 type SchemaParams struct {

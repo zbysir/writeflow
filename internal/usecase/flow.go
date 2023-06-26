@@ -23,16 +23,16 @@ type Flow struct {
 }
 
 func NewFlow(flowRepo repo.Flow) *Flow {
-	wirteflow := writeflow.NewWriteFlow(
-		writeflow.WithModules(
-			builtin.New(),
-			langchain.NewLangChain(),
-		),
-	)
+	wf := writeflow.NewWriteFlow()
+
+	wf.RegisterModule(builtin.New())
+	wf.RegisterModule(langchain.NewLangChain())
+
+	// TODO 加载插件
 
 	return &Flow{
 		flowRepo:  flowRepo,
-		wirteflow: wirteflow,
+		wirteflow: wf,
 		ws:        ws.NewHub(),
 	}
 }

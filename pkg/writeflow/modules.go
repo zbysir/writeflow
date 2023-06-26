@@ -15,3 +15,7 @@ type Module interface {
 	Cmd() map[string]CMDer
 	GoSymbols() map[string]map[string]reflect.Value // If you want to create a component by go code, you need to implement this method. more detail see `yaegi` project.
 }
+
+type ModuleRegister interface {
+	RegisterModule(m Module)
+}
