@@ -1,6 +1,7 @@
 package writeflow
 
 import (
+	plugin2 "github.com/zbysir/writeflow/pkg/plugin"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -17,10 +18,10 @@ func (s sysFs) Open(name string) (fs.File, error) {
 }
 
 type mockRegister struct {
-	ms []Module
+	ms []plugin2.Module
 }
 
-func (m2 *mockRegister) RegisterModule(m Module) {
+func (m2 *mockRegister) RegisterModule(m plugin2.Module) {
 	m2.ms = append(m2.ms, m)
 }
 
@@ -31,9 +32,10 @@ func TestGoPkgPlugin(t *testing.T) {
 	}
 	r := &mockRegister{}
 	err := p.Register(r)
-	if ErrNodeUnreachable != nil {
+	if err != nil {
 		t.Fatal(err)
 	}
 
+	r.ms[0].Cmd()
 	t.Logf("%+v", r.ms)
 }

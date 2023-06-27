@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
+	plugin2 "github.com/zbysir/writeflow/pkg/plugin"
+	"github.com/zbysir/writeflow/pkg/writeflow/gosymbols"
 	"io/fs"
 	"reflect"
 	"strings"
@@ -51,9 +53,9 @@ type AddPrefixFs struct {
 }
 
 func (p *AddPrefixFs) Open(name string) (fs.File, error) {
-
 	return p.fs.Open(strings.TrimPrefix(name, p.prefix))
 }
+
 func NewRemovePrefixFs(fs fs.FS, prefix string) *AddPrefixFs {
 	return &AddPrefixFs{
 		fs:     fs,
@@ -61,7 +63,7 @@ func NewRemovePrefixFs(fs fs.FS, prefix string) *AddPrefixFs {
 	}
 }
 
-func (p *GoPkgPlugin) Register(r ModuleRegister) (err error) {
+func (p *GoPkgPlugin) Register(r plugin2.ModuleRegister) (err error) {
 	i := interp.New(interp.Options{
 		GoPath: "./",
 		// wrap src/pkgname
@@ -73,7 +75,7 @@ func (p *GoPkgPlugin) Register(r ModuleRegister) (err error) {
 		return err
 	}
 
-	err = i.Use(Symbols())
+	err = i.Use(gosymbols.Symbols)
 	if err != nil {
 		return err
 	}

@@ -17,11 +17,11 @@ type NewCmd func(config map[string]interface{}) (CMDer, error)
 
 func Symbols() map[string]map[string]reflect.Value {
 	return map[string]map[string]reflect.Value{
-		"github.com/zbysir/writeflow/pkg/schema/schema": {
-			"CMDer":  reflect.ValueOf((*CMDer)(nil)),
-			//"Schema":       reflect.ValueOf((*schema.Schema)(nil)),
-			//"SchemaParams": reflect.ValueOf((*schema.SchemaParams)(nil)),
-		},
+		//"github.com/zbysir/writeflow/pkg/schema/schema": {
+		//	"CMDer":  reflect.ValueOf((*CMDer)(nil)),
+		//	//"Schema":       reflect.ValueOf((*schema.Schema)(nil)),
+		//	//"SchemaParams": reflect.ValueOf((*schema.SchemaParams)(nil)),
+		//},
 	}
 }
 
@@ -29,6 +29,7 @@ func NewGoPkg(fs fs.FS, goPath string, packagePath string) (*GoPkgCMD, error) {
 	i := interp.New(interp.Options{
 		GoPath:               goPath,
 		SourcecodeFilesystem: fs,
+		Unrestricted:         true,
 	})
 
 	err := i.Use(stdlib.Symbols)

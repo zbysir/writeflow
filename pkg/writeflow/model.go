@@ -10,10 +10,6 @@ type ComponentScript struct {
 	Source string `json:"source"` // 如果设置则使用这个 source，否则使用 input 里的值
 }
 
-type ComponentGoPackage struct {
-	GitUrl string `json:"git_url,omitempty"`
-}
-
 type ComponentCmdType string
 
 const (
@@ -26,10 +22,9 @@ const (
 
 // ComponentSource 组件数据源，可以用来得到 Cmd
 type ComponentSource struct {
-	CmdType    ComponentCmdType   `json:"cmd_type"` // go_script / git / builtin
-	BuiltinCmd string             `json:"builtin_cmd"`
-	GoPackage  ComponentGoPackage `json:"go_package,omitempty"`
-	Script     ComponentScript    `json:"script,omitempty"`
+	CmdType    ComponentCmdType `json:"cmd_type"` // go_script / git / builtin
+	BuiltinCmd string           `json:"builtin_cmd"`
+	Script     ComponentScript  `json:"script,omitempty"`
 }
 
 type NodeOutputAnchor struct {
