@@ -10,7 +10,6 @@ import (
 	"github.com/zbysir/writeflow/internal/pkg/ws"
 	"github.com/zbysir/writeflow/internal/repo"
 	"github.com/zbysir/writeflow/pkg/modules/builtin"
-	"github.com/zbysir/writeflow/pkg/modules/langchain"
 	"github.com/zbysir/writeflow/pkg/writeflow"
 	"time"
 )
@@ -26,9 +25,15 @@ func NewFlow(flowRepo repo.Flow) *Flow {
 	wf := writeflow.NewWriteFlow()
 
 	wf.RegisterModule(builtin.New())
-	wf.RegisterModule(langchain.NewLangChain())
+	//wf.RegisterModule(langchain.NewLangChain())
 
 	// TODO 加载插件
+	p1 := writeflow.NewGoPkgPlugin(writeflow.NewSysFs("/Users/bysir/goproj/bysir/writeflow-plugin-llm"))
+	err := p1.Register(wf)
+	if err != nil {
+		log.Errorf("register plugin err: %v", err)
+	}
+	//wf.RegisterPlugin()
 
 	return &Flow{
 		flowRepo:  flowRepo,

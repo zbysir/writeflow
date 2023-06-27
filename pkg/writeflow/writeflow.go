@@ -3,6 +3,8 @@ package writeflow
 import (
 	"context"
 	"fmt"
+	"github.com/samber/lo"
+	"github.com/zbysir/writeflow/pkg/plugin"
 )
 
 type WriteFlow struct {
@@ -13,6 +15,99 @@ type WriteFlow struct {
 
 func (w *WriteFlow) RegisterModule(m Module) {
 	w.modules = append(w.modules, m)
+	for k, v := range m.Cmd() {
+		w.core.RegisterCmd(k, v)
+	}
+}
+
+type ModuleForPlugin struct {
+	inner plugin.Plugin
+}
+
+func (m *ModuleForPlugin) Info() ModuleInfo {
+	ii := m.inner.Info()
+	return ModuleInfo{NameSpace: ii.NameSpace}
+}
+
+func (m *ModuleForPlugin) Categories() []Category {
+	ic := m.inner.Categories()
+	var cc []Category
+	for _, c := range ic {
+		cc = append(cc, Category{
+			Key:  c.Key,
+			Name: Locales(c.Name),
+			Desc: Locales(c.Desc),
+		})
+	}
+
+	return cc
+}
+
+func (m *ModuleForPlugin) Components() []Component {
+	ic := m.inner.Components()
+	var cc []Component
+	for _, c := range ic {
+		cc = append(cc, Component{
+			Id:       c.Id,
+			Type:     c.Type,
+			Category: c.Category,
+			Data: ComponentData{
+				Name:        Locales(c.Data.Name),
+				Icon:        c.Data.Icon,
+				Description: Locales(c.Data.Description),
+				Source: ComponentSource{
+					CmdType:    ComponentCmdType(c.Data.Source.CmdType),
+					BuiltinCmd: c.Data.Source.BuiltinCmd,
+					Script:     ComponentScript{Source: c.Data.Source.Script},
+				},
+				DynamicInput:  c.Data.DynamicInput,
+				DynamicOutput: c.Data.DynamicOutput,
+				InputParams: lo.Map(c.Data.InputParams, func(item plugin.NodeInputParam, _ int) NodeInputParam {
+					return NodeInputParam{
+						Name:        Locales(item.Name),
+						Key:         item.Key,
+						InputType:   item.InputType,
+						Type:        item.Type,
+						DisplayType: item.DisplayType,
+						Options:     item.Options,
+						Optional:    item.Optional,
+						Dynamic:     item.Dynamic,
+						Value:       item.Value,
+						List:        item.List,
+						Anchors: lo.Map(item.Anchors, func(item plugin.NodeAnchorTarget, _ int) NodeAnchorTarget {
+							return NodeAnchorTarget{
+								NodeId:    item.NodeId,
+								OutputKey: item.OutputKey,
+							}
+						}),
+					}
+				}),
+				OutputAnchors: lo.Map(c.Data.OutputAnchors, func(item plugin.NodeOutputAnchor, _ int) NodeOutputAnchor {
+					return NodeOutputAnchor{
+						Name:    Locales(item.Name),
+						Key:     item.Key,
+						Type:    item.Type,
+						Dynamic: item.Dynamic,
+						List:    item.List,
+					}
+				}),
+				Config: nil,
+			},
+		})
+	}
+	return cc
+}
+
+func (m *ModuleForPlugin) Cmd() map[string]CMDer {
+	mm := map[string]CMDer{}
+	for k, v := range m.inner.Cmd() {
+		mm[k] = v
+	}
+	return mm
+}
+
+func (w *WriteFlow) RegisterPlugin(m plugin.Plugin) {
+	w.modules = append(w.modules, &ModuleForPlugin{inner: m})
 	for k, v := range m.Cmd() {
 		w.core.RegisterCmd(k, v)
 	}

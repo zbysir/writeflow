@@ -5,7 +5,7 @@ import (
 	"context"
 )
 
-type ModuleInfo struct {
+type PluginInfo struct {
 	NameSpace string
 }
 
@@ -23,8 +23,8 @@ type Component struct {
 	Data     ComponentData `json:"data"`
 }
 
-type Module interface {
-	Info() ModuleInfo
+type Plugin interface {
+	Info() PluginInfo
 	Categories() []Category
 	Components() []Component
 	Cmd() map[string]CMDer
@@ -34,8 +34,8 @@ type CMDer interface {
 	Exec(ctx context.Context, params map[string]interface{}) (rsp map[string]interface{}, err error)
 }
 
-type ModuleRegister interface {
-	RegisterModule(m Module)
+type Register interface {
+	RegisterPlugin(m Plugin)
 }
 
 // ComponentSource 组件数据源，可以用来得到 Cmd

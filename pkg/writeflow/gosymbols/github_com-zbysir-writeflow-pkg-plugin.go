@@ -17,17 +17,17 @@ func init() {
 		"ComponentData":    reflect.ValueOf((*plugin.ComponentData)(nil)),
 		"ComponentSource":  reflect.ValueOf((*plugin.ComponentSource)(nil)),
 		"Locales":          reflect.ValueOf((*plugin.Locales)(nil)),
-		"Module":           reflect.ValueOf((*plugin.Module)(nil)),
-		"ModuleInfo":       reflect.ValueOf((*plugin.ModuleInfo)(nil)),
-		"ModuleRegister":   reflect.ValueOf((*plugin.ModuleRegister)(nil)),
 		"NodeAnchorTarget": reflect.ValueOf((*plugin.NodeAnchorTarget)(nil)),
 		"NodeInputParam":   reflect.ValueOf((*plugin.NodeInputParam)(nil)),
 		"NodeOutputAnchor": reflect.ValueOf((*plugin.NodeOutputAnchor)(nil)),
+		"Plugin":           reflect.ValueOf((*plugin.Plugin)(nil)),
+		"PluginInfo":       reflect.ValueOf((*plugin.PluginInfo)(nil)),
+		"Register":         reflect.ValueOf((*plugin.Register)(nil)),
 
 		// interface wrapper definitions
-		"_CMDer":          reflect.ValueOf((*_github_com_zbysir_writeflow_pkg_plugin_CMDer)(nil)),
-		"_Module":         reflect.ValueOf((*_github_com_zbysir_writeflow_pkg_plugin_Module)(nil)),
-		"_ModuleRegister": reflect.ValueOf((*_github_com_zbysir_writeflow_pkg_plugin_ModuleRegister)(nil)),
+		"_CMDer":    reflect.ValueOf((*_github_com_zbysir_writeflow_pkg_plugin_CMDer)(nil)),
+		"_Plugin":   reflect.ValueOf((*_github_com_zbysir_writeflow_pkg_plugin_Plugin)(nil)),
+		"_Register": reflect.ValueOf((*_github_com_zbysir_writeflow_pkg_plugin_Register)(nil)),
 	}
 }
 
@@ -41,34 +41,34 @@ func (W _github_com_zbysir_writeflow_pkg_plugin_CMDer) Exec(ctx context.Context,
 	return W.WExec(ctx, params)
 }
 
-// _github_com_zbysir_writeflow_pkg_plugin_Module is an interface wrapper for Module type
-type _github_com_zbysir_writeflow_pkg_plugin_Module struct {
+// _github_com_zbysir_writeflow_pkg_plugin_Plugin is an interface wrapper for Plugin type
+type _github_com_zbysir_writeflow_pkg_plugin_Plugin struct {
 	IValue      interface{}
 	WCategories func() []plugin.Category
 	WCmd        func() map[string]plugin.CMDer
 	WComponents func() []plugin.Component
-	WInfo       func() plugin.ModuleInfo
+	WInfo       func() plugin.PluginInfo
 }
 
-func (W _github_com_zbysir_writeflow_pkg_plugin_Module) Categories() []plugin.Category {
+func (W _github_com_zbysir_writeflow_pkg_plugin_Plugin) Categories() []plugin.Category {
 	return W.WCategories()
 }
-func (W _github_com_zbysir_writeflow_pkg_plugin_Module) Cmd() map[string]plugin.CMDer {
+func (W _github_com_zbysir_writeflow_pkg_plugin_Plugin) Cmd() map[string]plugin.CMDer {
 	return W.WCmd()
 }
-func (W _github_com_zbysir_writeflow_pkg_plugin_Module) Components() []plugin.Component {
+func (W _github_com_zbysir_writeflow_pkg_plugin_Plugin) Components() []plugin.Component {
 	return W.WComponents()
 }
-func (W _github_com_zbysir_writeflow_pkg_plugin_Module) Info() plugin.ModuleInfo {
+func (W _github_com_zbysir_writeflow_pkg_plugin_Plugin) Info() plugin.PluginInfo {
 	return W.WInfo()
 }
 
-// _github_com_zbysir_writeflow_pkg_plugin_ModuleRegister is an interface wrapper for ModuleRegister type
-type _github_com_zbysir_writeflow_pkg_plugin_ModuleRegister struct {
+// _github_com_zbysir_writeflow_pkg_plugin_Register is an interface wrapper for Register type
+type _github_com_zbysir_writeflow_pkg_plugin_Register struct {
 	IValue          interface{}
-	WRegisterModule func(m plugin.Module)
+	WRegisterPlugin func(m plugin.Plugin)
 }
 
-func (W _github_com_zbysir_writeflow_pkg_plugin_ModuleRegister) RegisterModule(m plugin.Module) {
-	W.WRegisterModule(m)
+func (W _github_com_zbysir_writeflow_pkg_plugin_Register) RegisterPlugin(m plugin.Plugin) {
+	W.WRegisterPlugin(m)
 }

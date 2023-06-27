@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
-	plugin2 "github.com/zbysir/writeflow/pkg/plugin"
+	"github.com/zbysir/writeflow/pkg/plugin"
 	"github.com/zbysir/writeflow/pkg/writeflow/gosymbols"
 	"io/fs"
 	"reflect"
 	"strings"
 )
 
+// GoPkgPluginManager list all plugin in a dir
 type GoPkgPluginManager struct {
 	fs fs.FS
 }
@@ -40,34 +41,37 @@ func (m *GoPkgPluginManager) Load() ([]GoPkgPlugin, error) {
 
 type GoPkgPlugin struct {
 	fs      fs.FS
-	pkgName string
+	pkgName string // default is main
 }
 
-// type GoPkgPluginModule struct{
-//
-// }
+func NewGoPkgPlugin(fs fs.FS) *GoPkgPlugin {
+	return &GoPkgPlugin{fs: fs}
+}
 
-type AddPrefixFs struct {
+type removePrefixFs struct {
 	fs     fs.FS
 	prefix string
 }
 
-func (p *AddPrefixFs) Open(name string) (fs.File, error) {
+func (p *removePrefixFs) Open(name string) (fs.File, error) {
 	return p.fs.Open(strings.TrimPrefix(name, p.prefix))
 }
 
-func NewRemovePrefixFs(fs fs.FS, prefix string) *AddPrefixFs {
-	return &AddPrefixFs{
+func RemovePrefixFs(fs fs.FS, prefix string) fs.FS {
+	return &removePrefixFs{
 		fs:     fs,
 		prefix: prefix,
 	}
 }
 
-func (p *GoPkgPlugin) Register(r plugin2.ModuleRegister) (err error) {
+func (p *GoPkgPlugin) Register(r plugin.Register) (err error) {
+	if p.pkgName == "" {
+		p.pkgName = "main"
+	}
 	i := interp.New(interp.Options{
 		GoPath: "./",
 		// wrap src/pkgname
-		SourcecodeFilesystem: NewRemovePrefixFs(p.fs, "src/"+p.pkgName),
+		SourcecodeFilesystem: RemovePrefixFs(p.fs, "src/"+p.pkgName),
 	})
 
 	err = i.Use(stdlib.Symbols)
