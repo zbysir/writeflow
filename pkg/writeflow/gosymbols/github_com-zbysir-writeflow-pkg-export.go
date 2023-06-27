@@ -10,9 +10,6 @@ import (
 
 func init() {
 	Symbols["github.com/zbysir/writeflow/pkg/export/export"] = map[string]reflect.Value{
-		// function, constant and variable definitions
-		"NewSteamResponse": reflect.ValueOf(export.NewSteamResponse),
-
 		// type definitions
 		"CMDer":            reflect.ValueOf((*export.CMDer)(nil)),
 		"Category":         reflect.ValueOf((*export.Category)(nil)),
@@ -25,11 +22,9 @@ func init() {
 		"NodeOutputAnchor": reflect.ValueOf((*export.NodeOutputAnchor)(nil)),
 		"Plugin":           reflect.ValueOf((*export.Plugin)(nil)),
 		"PluginInfo":       reflect.ValueOf((*export.PluginInfo)(nil)),
-		"Read":             reflect.ValueOf((*export.Read)(nil)),
 		"Reader":           reflect.ValueOf((*export.Reader)(nil)),
 		"Register":         reflect.ValueOf((*export.Register)(nil)),
 		"Stream":           reflect.ValueOf((*export.Stream)(nil)),
-		"StreamResponse":   reflect.ValueOf((*export.StreamResponse)(nil)),
 
 		// interface wrapper definitions
 		"_CMDer":    reflect.ValueOf((*_github_com_zbysir_writeflow_pkg_export_CMDer)(nil)),

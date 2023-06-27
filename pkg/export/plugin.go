@@ -1,4 +1,4 @@
-// Package plugin should be kept simple to work well with yaegi
+// Package export should be kept simple to work well with yaegi
 package export
 
 import (
