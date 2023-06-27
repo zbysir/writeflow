@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/zbysir/writeflow/internal/pkg/keylock"
 	"github.com/zbysir/writeflow/internal/pkg/log"
+	"github.com/zbysir/writeflow/pkg/export"
 	"io"
 	"sort"
 	"strings"
@@ -600,7 +601,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 			valueLock := sync.Mutex{}
 			dependValuex := cloneMap(dependValue)
 			for k, v := range dependValue {
-				if steam, ok := v.(*StreamResponse[string]); ok {
+				if steam, ok := v.(export.Stream); ok {
 					wg.Add(1)
 					reader := steam.NewReader()
 					go func() {
@@ -649,7 +650,7 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 
 			// 其他命令需要等待直到流完成
 			for k, v := range dependValue {
-				if steam, ok := v.(*StreamResponse[string]); ok {
+				if steam, ok := v.(export.Stream); ok {
 					var ts []string
 					ts, err = steam.NewReader().ReadAll()
 					if err != nil {

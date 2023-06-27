@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/samber/lo"
-	"github.com/zbysir/writeflow/pkg/plugin"
+	"github.com/zbysir/writeflow/pkg/export"
 )
 
 type WriteFlow struct {
@@ -21,7 +21,7 @@ func (w *WriteFlow) RegisterModule(m Module) {
 }
 
 type ModuleForPlugin struct {
-	inner plugin.Plugin
+	inner export.Plugin
 }
 
 func (m *ModuleForPlugin) Info() ModuleInfo {
@@ -62,7 +62,7 @@ func (m *ModuleForPlugin) Components() []Component {
 				},
 				DynamicInput:  c.Data.DynamicInput,
 				DynamicOutput: c.Data.DynamicOutput,
-				InputParams: lo.Map(c.Data.InputParams, func(item plugin.NodeInputParam, _ int) NodeInputParam {
+				InputParams: lo.Map(c.Data.InputParams, func(item export.NodeInputParam, _ int) NodeInputParam {
 					return NodeInputParam{
 						Name:        Locales(item.Name),
 						Key:         item.Key,
@@ -74,7 +74,7 @@ func (m *ModuleForPlugin) Components() []Component {
 						Dynamic:     item.Dynamic,
 						Value:       item.Value,
 						List:        item.List,
-						Anchors: lo.Map(item.Anchors, func(item plugin.NodeAnchorTarget, _ int) NodeAnchorTarget {
+						Anchors: lo.Map(item.Anchors, func(item export.NodeAnchorTarget, _ int) NodeAnchorTarget {
 							return NodeAnchorTarget{
 								NodeId:    item.NodeId,
 								OutputKey: item.OutputKey,
@@ -82,7 +82,7 @@ func (m *ModuleForPlugin) Components() []Component {
 						}),
 					}
 				}),
-				OutputAnchors: lo.Map(c.Data.OutputAnchors, func(item plugin.NodeOutputAnchor, _ int) NodeOutputAnchor {
+				OutputAnchors: lo.Map(c.Data.OutputAnchors, func(item export.NodeOutputAnchor, _ int) NodeOutputAnchor {
 					return NodeOutputAnchor{
 						Name:    Locales(item.Name),
 						Key:     item.Key,
@@ -106,7 +106,7 @@ func (m *ModuleForPlugin) Cmd() map[string]CMDer {
 	return mm
 }
 
-func (w *WriteFlow) RegisterPlugin(m plugin.Plugin) {
+func (w *WriteFlow) RegisterPlugin(m export.Plugin) {
 	w.modules = append(w.modules, &ModuleForPlugin{inner: m})
 	for k, v := range m.Cmd() {
 		w.core.RegisterCmd(k, v)

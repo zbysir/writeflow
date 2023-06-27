@@ -27,13 +27,27 @@ func NewFlow(flowRepo repo.Flow) *Flow {
 	wf.RegisterModule(builtin.New())
 	//wf.RegisterModule(langchain.NewLangChain())
 
-	// TODO 加载插件
-	p1 := writeflow.NewGoPkgPlugin(writeflow.NewSysFs("/Users/bysir/goproj/bysir/writeflow-plugin-llm"))
-	err := p1.Register(wf)
+	// 加载插件
+	pm := writeflow.NewGoPkgPluginManager(nil, []writeflow.PluginSource{
+		{
+			Url:    "https://github.com/zbysir/writeflow-plugin-llm",
+			Enable: true,
+		},
+	})
+	gg, err := pm.Load()
 	if err != nil {
-		log.Errorf("register plugin err: %v", err)
+		log.Errorf("load plugin err: %v", err)
 	}
-	//wf.RegisterPlugin()
+
+	for _, v := range gg {
+		if !v.Enable {
+			continue
+		}
+		err := v.Register(wf)
+		if err != nil {
+			log.Errorf("register plugin '%s' err: %v", v.Source, err)
+		}
+	}
 
 	return &Flow{
 		flowRepo:  flowRepo,
