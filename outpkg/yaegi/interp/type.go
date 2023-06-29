@@ -832,6 +832,8 @@ func nodeType2(interp *Interpreter, sc *scope, n *node, seen []*node) (t *itype,
 				t = lt
 				break
 			}
+
+			// 找到 Data 的定义，将 Data 的 methods copy 到 Data[string]
 			name := lt.id() + "[" + t1.id() + "]"
 			if sym, _, found := sc.lookup(name); found {
 				t = sym.typ
@@ -1116,6 +1118,7 @@ func nodeType2(interp *Interpreter, sc *scope, n *node, seen []*node) (t *itype,
 	return t, err
 }
 
+// 生成泛型实例 type，B[string]
 func genType(interp *Interpreter, sc *scope, name string, lt *itype, types []*itype, seen []*node) (t *itype, err error) {
 	// A generic type is being instantiated. Generate it.
 	g, _, err := genAST(sc, lt.node.anc, types)
@@ -1133,6 +1136,7 @@ func genType(interp *Interpreter, sc *scope, name string, lt *itype, types []*it
 		lt.scope.sym[name] = sc.sym[name]
 	}
 
+	// copy methods
 	for _, nod := range lt.method {
 		if err := genMethod(interp, sc, t, nod, types); err != nil {
 			return nil, err

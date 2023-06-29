@@ -11,13 +11,20 @@ func TestGoAst(t *testing.T) {
 	// src is the input for which we want to print the AST.
 	src := `
 package main
-type A struct {
-	*B[string]
-}
 
 type B[T any] struct {
 	data T
 }
+
+func (b *B[T]) SetData(data T) {
+	b.clearData()
+}
+
+func (b *B[T]) clearData() {
+	var t T
+	b.data = t
+}
+
 `
 
 	// Create the AST by parsing src.

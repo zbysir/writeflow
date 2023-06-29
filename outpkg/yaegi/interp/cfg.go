@@ -306,6 +306,7 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			if len(n.child) > 0 && n.child[0].isType(sc) {
 				// Get type from 1st child.
 				if n.typ, err = nodeType(interp, sc, n.child[0]); err != nil {
+					log.Printf("compositeLitExpr err: %v", err)
 					return false
 				}
 				// Indicate that the first child is the type.
@@ -420,6 +421,8 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			fallthrough
 
 		case funcDecl:
+			// setData 中有调用 clearData.
+
 			// Do not allow function declarations without body.
 			if len(n.child) < 4 {
 				err = n.cfgErrorf("function declaration without body is unsupported (linkname or assembly can not be interpreted).")
@@ -439,9 +442,13 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				if err != nil {
 					return false
 				}
+
 				if typ.cat == genericT || (typ.val != nil && typ.val.cat == genericT) {
 					return false
 				}
+				//if typ.cat == nilT {
+				//	return false
+				//}
 				if typ.cat == ptrT {
 					rc0 := recvTypeNode.child[0]
 					rt0, err := nodeType(interp, sc, rc0)
@@ -454,6 +461,8 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 				}
 			}
 
+			// child [,funcType,,body]
+			//
 			// Compute function type before entering local scope to avoid
 			// possible collisions with function argument names.
 			n.child[2].typ, err = nodeType(interp, sc, n.child[2])
@@ -527,7 +536,6 @@ func (interp *Interpreter) cfg(root *node, sc *scope, importPath, pkgName string
 			if n.child[1].ident == "init" && len(n.child[0].child) == 0 {
 				initNodes = append(initNodes, n)
 			}
-
 		case ifStmt0, ifStmt1, ifStmt2, ifStmt3:
 			sc = sc.pushBloc()
 
