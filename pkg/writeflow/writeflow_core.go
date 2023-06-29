@@ -173,12 +173,8 @@ func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParam
 }
 
 func (f *WriteFlowCore) ExecNode(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (rsp Map, err error) {
-	// use params node to get init params
-	f.RegisterCmd("_params", NewFun(func(ctx context.Context, _ Map) (Map, error) {
-		return NewMap(initParams), nil
-	}))
-
 	fr := newRunner(f.cmds, flow, parallel)
+	fr.global["params"] = initParams
 	_, ok := flow.Nodes[flow.OutputNodeId]
 	if !ok {
 		return Map{}, fmt.Errorf("output node %s not found", flow.OutputNodeId)
@@ -192,6 +188,7 @@ type runner struct {
 	cmd         map[string]CMDer                  // id -> cmder
 	cmdRspCache map[string]*runnerRsp             // nodeId->key->value
 	inject      map[string]map[string]interface{} // nodeId->key->value
+	global      map[string]map[string]interface{} // key->key->value
 	l           sync.RWMutex                      // lock for map
 	keyLock     *keylock.KeyLock                  // lock for cmdRspCache (防止并发下缓存穿透)
 	limitChan   chan struct{}
@@ -253,6 +250,7 @@ func newRunner(cmd map[string]CMDer, flowDef *Flow, parallel int) *runner {
 		cmd:         cmd,
 		cmdRspCache: map[string]*runnerRsp{},
 		inject:      map[string]map[string]interface{}{},
+		global:      map[string]map[string]interface{}{},
 		l:           sync.RWMutex{},
 		keyLock:     keylock.NewKeyLock(),
 		limitChan:   make(chan struct{}, parallel),
@@ -473,6 +471,10 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 	//log.Infof("input %v: %+v", nodeId, inputs)
 	// switch 和 for 内置实现，不使用 cmd 逻辑。
 	switch nodeDef.Cmd {
+	case "_params":
+		return f.global["params"], nil
+	case "_env":
+		return f.global["env"], nil
 	case "_switch":
 		// get data
 		var data interface{}
