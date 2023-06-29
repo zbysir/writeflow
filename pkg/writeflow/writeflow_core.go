@@ -141,12 +141,8 @@ func (d *Flow) UsedComponents() (componentType []string) {
 type Map = map[string]interface{}
 
 func (f *WriteFlowCore) ExecFlowAsync(ctx context.Context, flow *Flow, initParams map[string]interface{}, parallel int) (results chan NodeStatusLog, err error) {
-	// use params node to get init params
-	f.RegisterCmd("_params", NewFun(func(ctx context.Context, _ Map) (Map, error) {
-		return NewMap(initParams), nil
-	}))
-
 	fr := newRunner(f.cmds, flow, parallel)
+	fr.global["params"] = initParams
 	rootNodes := flow.Nodes.GetRootNodes()
 
 	results = make(chan NodeStatusLog, 100)
@@ -472,9 +468,9 @@ func (f *runner) ExecNode(ctx context.Context, nodeId string, nocache bool, onNo
 	// switch 和 for 内置实现，不使用 cmd 逻辑。
 	switch nodeDef.Cmd {
 	case "_params":
-		return f.global["params"], nil
+		return map[string]interface{}{"default": f.global["params"]}, nil
 	case "_env":
-		return f.global["env"], nil
+		return map[string]interface{}{"default": f.global["env"]}, nil
 	case "_switch":
 		// get data
 		var data interface{}
