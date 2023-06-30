@@ -142,7 +142,47 @@ func (interp *Interpreter) gta(root *node, rpath, importPath, pkgName string) ([
 				err = n.cfgErrorf("%s redeclared in this block", c.ident)
 				return false
 			}
-
+		//case compositeLitExpr:
+		//	c, err := interp.gta(n, rpath, importPath, pkgName)
+		//	if err != nil {
+		//		fmt.Printf("gta error: %v", err)
+		//		return false
+		//	}
+		//	revisit = append(revisit, c...)
+		//	revisit = append(revisit, n)
+		//case indexExpr:
+		//	var lt *itype
+		//	if lt, err = nodeType2(interp, sc, n.child[0], nil); err != nil {
+		//		return false
+		//	}
+		//	//if lt.incomplete {
+		//	//	if t == nil {
+		//	//		t = lt
+		//	//	} else {
+		//	//		t.incomplete = true
+		//	//	}
+		//	//	break
+		//	//}
+		//	switch lt.cat {
+		//	//case arrayT, mapT, sliceT, variadicT:
+		//	//	t = lt.val
+		//	case genericT:
+		//		t1, err := nodeType2(interp, sc, n.child[1], nil)
+		//		if err != nil {
+		//			return false
+		//			//return nil, err
+		//		}
+		//		if t1.cat == genericT || t1.incomplete {
+		//			break
+		//		}
+		//
+		//		// 找到 Data 的定义，将 Data 的 methods copy 到 Data[string]
+		//		name := lt.id() + "[" + t1.id() + "]"
+		//		if sym, _, found := sc.lookup(name); found {
+		//			t = sym.typ
+		//			break
+		//		}
+		//	}
 		case funcDecl:
 			if n.typ, err = nodeType(interp, sc, n.child[2]); err != nil {
 				return false

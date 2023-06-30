@@ -12,6 +12,7 @@ import (
 	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/pkg/export"
 	"github.com/zbysir/writeflow/pkg/writeflow/gosymbols"
+	"io"
 	"io/fs"
 	"os"
 	"reflect"
@@ -20,80 +21,59 @@ import (
 
 // GoPkgPluginManager list all plugin in a dir
 type GoPkgPluginManager struct {
-	cacheFs    billy.Filesystem // default is os.TempDir()
-	pluginUrls []PluginSource   // e.g. ["https://github.com/zbysir/writeflow-plugin-llm"]
+	cacheFs billy.Filesystem // default is os.TempDir()
 }
 
 type PluginSource struct {
-	Url    string
-	Enable bool
+	Url string
 }
 
-func NewGoPkgPluginManager(cacheFs billy.Filesystem, pluginUrls []PluginSource) *GoPkgPluginManager {
+func NewGoPkgPluginManager(cacheFs billy.Filesystem) *GoPkgPluginManager {
 	if cacheFs == nil {
 		cacheFs = osfs.New(os.TempDir())
 	}
-	return &GoPkgPluginManager{cacheFs: cacheFs, pluginUrls: pluginUrls}
+	return &GoPkgPluginManager{cacheFs: cacheFs}
 }
 
-func (m *GoPkgPluginManager) Load() ([]*GoPkgPlugin, error) {
-	ps := make([]*GoPkgPlugin, 0)
-
-	// TODO 并行使用 git 下载插件
-	for _, url := range m.pluginUrls {
-		if !url.Enable {
-			ps = append(ps, &GoPkgPlugin{
-				Source:  url.Url,
-				Enable:  false,
-				fs:      nil,
-				pkgName: "",
-			})
-			return nil, nil
-		}
-
-		dir := strings.TrimPrefix(url.Url, "https://")
-		dir = strings.TrimSuffix(dir, ".git")
-		err := m.cacheFs.MkdirAll(dir, 0755)
-		if err != nil {
-			return nil, err
-		}
-
-		// git clone
-		pluginFs := chroot.New(m.cacheFs, dir)
-		g, err := git.NewGit("", pluginFs, log.New(log.Options{
-			IsDev:         false,
-			To:            nil,
-			DisableTime:   false,
-			DisableLevel:  false,
-			DisableCaller: true,
-			CallerSkip:    0,
-			Name:          "[Plugin]",
-		}))
-		if err != nil {
-			return nil, err
-		}
-
-		// TODO Support specify branch
-		err = g.Pull(url.Url, "master", true)
-		if err != nil {
-			return nil, err
-		}
-
-		ps = append(ps, NewGoPkgPlugin(gobilly.NewStdFs(pluginFs), url.Url))
+func (m *GoPkgPluginManager) Load(sourceUrl string) (*GoPkgPlugin, error) {
+	dir := strings.TrimPrefix(sourceUrl, "https://")
+	dir = strings.TrimSuffix(dir, ".git")
+	err := m.cacheFs.MkdirAll(dir, 0755)
+	if err != nil {
+		return nil, err
 	}
 
-	return ps, nil
+	// git clone
+	pluginFs := chroot.New(m.cacheFs, dir)
+	g, err := git.NewGit("", pluginFs, log.New(log.Options{
+		IsDev:         false,
+		To:            nil,
+		DisableTime:   false,
+		DisableLevel:  false,
+		DisableCaller: true,
+		CallerSkip:    0,
+		Name:          "[Plugin]",
+	}))
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO Support specify branch
+	err = g.Pull(sourceUrl, "master", true)
+	if err != nil {
+		return nil, err
+	}
+	return NewGoPkgPlugin(gobilly.NewStdFs(pluginFs), sourceUrl), nil
 }
 
 type GoPkgPlugin struct {
 	Source  string
-	Enable  bool
 	fs      fs.FS
 	pkgName string // default is main
 }
 
 func NewGoPkgPlugin(fs fs.FS, source string) *GoPkgPlugin {
-	return &GoPkgPlugin{fs: fs, Source: source, Enable: true}
+	return &GoPkgPlugin{fs: fs, Source: source}
 }
 
 type removePrefixFs struct {
@@ -116,6 +96,21 @@ func (p *GoPkgPlugin) Register(r export.Register) (err error) {
 	if p.pkgName == "" {
 		p.pkgName = "main"
 	}
+
+	modFile, err := p.fs.Open("go.mod")
+	if err != nil {
+		return err
+	}
+	defer modFile.Close()
+	modBytes, err := io.ReadAll(modFile)
+	if err != nil {
+		return err
+	}
+	pkgName := strings.Split(string(modBytes), "\n")[0]
+	p.pkgName = strings.TrimPrefix(pkgName, "module ")
+
+	//p.pkgName = "github.com/zbysir/writeflow_plugin_llm"
+
 	i := interp.New(interp.Options{
 		GoPath: "./",
 		// wrap src/pkgname
@@ -132,15 +127,16 @@ func (p *GoPkgPlugin) Register(r export.Register) (err error) {
 		return err
 	}
 
-	_, err = i.Eval(fmt.Sprintf(`import "%v"`, p.pkgName))
+	// github.com/zbysir/writeflow_plugin_llm
+	_, err = i.Eval(fmt.Sprintf(`import plugin "%v"`, p.pkgName))
 	if err != nil {
 		return fmt.Errorf("failed to eval import: %w", err)
 	}
 
 	// func Register(r ModuleRegister){}
-	newFun, err := i.Eval(fmt.Sprintf("%v.Register", p.pkgName))
+	newFun, err := i.Eval(fmt.Sprintf("%v.Register", "plugin"))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to eval Register: %w", err)
 	}
 
 	_ = newFun.Call([]reflect.Value{reflect.ValueOf(r)})

@@ -15,45 +15,91 @@ import (
 )
 
 type Flow struct {
-	flowRepo repo.Flow
-	//componentRepo repo.Component
-	wirteflow *writeflow.WriteFlow
-	ws        *ws.WsHub
+	flowRepo     repo.Flow
+	sysRepo      repo.System
+	wirteflow    *writeflow.WriteFlow
+	ws           *ws.WsHub
+	pluginStatus []PluginStatus
+}
+type PluginStatus struct {
+	model.PluginSource
+	Status string
+	Error  string
 }
 
-func NewFlow(flowRepo repo.Flow) *Flow {
+func NewFlow(flowRepo repo.Flow, sysRepo repo.System) (*Flow, error) {
+	f := &Flow{
+		flowRepo:  flowRepo,
+		wirteflow: nil,
+		sysRepo:   sysRepo,
+		ws:        ws.NewHub(),
+	}
+
+	err := f.ReloadWriteFlow(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return f, nil
+}
+
+// ReloadWriteFlow 如果有插件更改，需要重新加载
+func (u *Flow) ReloadWriteFlow(ctx context.Context) error {
 	wf := writeflow.NewWriteFlow()
 
 	wf.RegisterModule(builtin.New())
-	//wf.RegisterModule(langchain.NewLangChain())
+
+	setting, err := u.sysRepo.GetSetting(ctx)
+	if err != nil {
+		return err
+	}
 
 	// 加载插件
-	pm := writeflow.NewGoPkgPluginManager(nil, []writeflow.PluginSource{
-		{
-			Url:    "https://github.com/zbysir/writeflow-plugin-llm",
-			Enable: true,
-		},
-	})
-	gg, err := pm.Load()
-	if err != nil {
-		log.Errorf("load plugin err: %v", err)
-	}
+	u.pluginStatus = []PluginStatus{}
+	pm := writeflow.NewGoPkgPluginManager(nil)
 
-	for _, v := range gg {
-		if !v.Enable {
+	// 设置一个默认的插件
+	if len(setting.Plugins) == 0 {
+		setting.Plugins = []model.PluginSource{
+			{
+				Url:    "https://github.com/zbysir/writeflow-plugin-llm",
+				Enable: true,
+			},
+		}
+	}
+	for _, p := range setting.Plugins {
+		if p.Enable == false {
 			continue
 		}
-		err := v.Register(wf)
+
+		plug, err := pm.Load(p.Url)
 		if err != nil {
-			log.Errorf("register plugin '%s' err: %v", v.Source, err)
+			u.pluginStatus = append(u.pluginStatus, PluginStatus{
+				PluginSource: p,
+				Status:       "error",
+				Error:        err.Error(),
+			})
+		} else {
+			err = plug.Register(wf)
+			if err != nil {
+				u.pluginStatus = append(u.pluginStatus, PluginStatus{
+					PluginSource: p,
+					Status:       "error",
+					Error:        err.Error(),
+				})
+			} else {
+				u.pluginStatus = append(u.pluginStatus, PluginStatus{
+					PluginSource: p,
+					Status:       "enable",
+					Error:        "",
+				})
+			}
 		}
 	}
 
-	return &Flow{
-		flowRepo:  flowRepo,
-		wirteflow: wf,
-		ws:        ws.NewHub(),
-	}
+	u.wirteflow = wf
+
+	return nil
 }
 
 func (u *Flow) GetComponents(ctx context.Context) (cs []writeflow.CategoryWithComponent, err error) {

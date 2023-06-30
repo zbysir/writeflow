@@ -31,8 +31,12 @@ type ApiService struct {
 	flowUsecase *usecase.Flow
 }
 
-func NewApiService(config Config, flowRepo repo.Flow) *ApiService {
-	return &ApiService{config: config, flowRepo: flowRepo, flowUsecase: usecase.NewFlow(flowRepo)}
+func NewApiService(config Config, flowRepo repo.Flow, sysRepo repo.System) (*ApiService, error) {
+	flow, err := usecase.NewFlow(flowRepo, sysRepo)
+	if err != nil {
+		return nil, err
+	}
+	return &ApiService{config: config, flowRepo: flowRepo, flowUsecase: flow}, nil
 }
 
 func Cors() gin.HandlerFunc {

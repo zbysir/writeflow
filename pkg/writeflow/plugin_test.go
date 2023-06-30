@@ -13,23 +13,16 @@ func (m2 *mockRegister) RegisterPlugin(m export.Plugin) {
 	m2.ms = append(m2.ms, m)
 }
 func TestNewGoPkgPluginManager(t *testing.T) {
-	pm := NewGoPkgPluginManager(nil, []PluginSource{
-		{
-			Url:    "https://github.com/zbysir/writeflow-plugin-llm",
-			Enable: true,
-		},
-	})
-	gg, err := pm.Load()
+	pm := NewGoPkgPluginManager(nil)
+	gg, err := pm.Load("https://github.com/zbysir/writeflow-plugin-llm")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, g := range gg {
-		r := &mockRegister{}
-		err := g.Register(r)
-		if err != nil {
-			t.Fatal(err)
-		}
+	r := &mockRegister{}
+	err = gg.Register(r)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

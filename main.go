@@ -17,6 +17,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(cmd.Api())
+	rootCmd.AddCommand(cmd.Tool())
 	rootCmd.AddCommand(cmd.Version("v0.0.1"))
 }
 

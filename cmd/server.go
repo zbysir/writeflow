@@ -46,8 +46,12 @@ func Api() *cobra.Command {
 			}
 
 			flowRepo := repo.NewBoltDBFlow(kvDb)
+			sysRepo := repo.NewBoltDBSystem(kvDb)
 
-			service := apiservice.NewApiService(apiservice.Config{Secret: p.Secret, ListenAddress: p.Address}, flowRepo)
+			service, err := apiservice.NewApiService(apiservice.Config{Secret: p.Secret, ListenAddress: p.Address}, flowRepo, sysRepo)
+			if err != nil {
+				return err
+			}
 
 			ctx, c := signal.NewContext()
 			defer c()
