@@ -13,8 +13,9 @@ Writeflow 支持通过拖拽节点来构建一个复杂的应用。
 - [x] 节点之间可以通过“连线”方式链接来描述输入输出关系。
 - [x] 默认尽可能的并行节点。
 - [x] For 与 Switch 逻辑分支
-- [ ] 应用市场: 支持任何 Golang Github 仓库作为应用，支持热插拔，基于 [yaegi](https://github.com/traefik/yaegi)。
-  - [] 支持按照模块 或者 CMD 来安装扩展
+- [x] 应用市场: 支持任何 Golang Github 仓库作为应用，支持热插拔，基于 [yaegi](https://github.com/traefik/yaegi)。
+  - 第一个插件：https://github.com/zbysir/writeflow-plugin-llm
+
 
 ## 目标场景
 
@@ -70,16 +71,17 @@ Cmd 是 Component 的运行命令，支持 Golang 代码、远端。
 - UI 可以直接抄 [https://github.com/FlowiseAI/Flowise](https://github.com/FlowiseAI/Flowise)，包括他使用的 reactflow 框架。
 
 ## 计划
-- [ ] 可视化 UI: [writeflow-ui](https://github.com/zbysir/writeflow-ui)
+- [x] 可视化 UI: [writeflow-ui](https://github.com/zbysir/writeflow-ui)
   - [x] 流程配置
   - [x] 运行状态
-- [ ] 分布式调度，支持重启恢复，持久化；这不是最优先级的，因为这个项目的编排能力是我最感兴趣的，我要优先实现它。
+- [ ] 分布式调度，支持重启恢复，持久化；这不是最高优先级，因为这个项目的节点编排能力是我最感兴趣的，我要优先实现它。
 - 逻辑分支
   - [x] Switch
   - [x] For
 - 并行执行
   - [x] 并行执行
-- [ ] 组件商店
+- [x] 插件：
+  - 第一个插件：https://github.com/zbysir/writeflow-plugin-llm
 
 ### 暂时不会做的事
 - 管理 Task 状态，实现优雅重启、重试等。你可以理解目前 writeflow 是内存型工作流。

@@ -21,14 +21,12 @@ require (
 	github.com/tmc/langchaingo v0.0.0-20230522045238-97426d911826
 	github.com/traefik/yaegi v0.15.1
 	github.com/zbysir/gojsx v0.4.8
-	github.com/zbysir/writeflow-ui v0.0.0-20230619073658-fb18c2e01d4c
+	github.com/zbysir/writeflow-ui v0.0.0-20230626032325-6712ca1cf2c9
 	go.uber.org/zap v1.21.0
 )
 
-replace (
-	// remove replace if this issue (https://github.com/traefik/yaegi/issues/1571) is fixed
-	github.com/traefik/yaegi v0.15.1 => "./outpkg/yaegi"
-)
+// remove replace if this issue (https://github.com/traefik/yaegi/issues/1571) is fixed
+replace github.com/traefik/yaegi v0.15.1 => ./outpkg/yaegi
 
 require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect

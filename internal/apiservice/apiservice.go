@@ -28,6 +28,7 @@ type ApiService struct {
 	config Config
 
 	flowRepo    repo.Flow
+	sysRepo     repo.System
 	flowUsecase *usecase.Flow
 }
 
@@ -36,7 +37,12 @@ func NewApiService(config Config, flowRepo repo.Flow, sysRepo repo.System) (*Api
 	if err != nil {
 		return nil, err
 	}
-	return &ApiService{config: config, flowRepo: flowRepo, flowUsecase: flow}, nil
+	return &ApiService{
+		config:      config,
+		flowRepo:    flowRepo,
+		flowUsecase: flow,
+		sysRepo:     sysRepo,
+	}, nil
 }
 
 func Cors() gin.HandlerFunc {
@@ -224,6 +230,7 @@ func (a *ApiService) Run(ctx context.Context, addr string) (err error) {
 	apiAuth := api.Use(Auth(a.config.Secret))
 
 	a.RegisterFlow(apiAuth)
+	a.RegisterSys(apiAuth)
 
 	s, err := httpsrv.NewService(addr)
 	if err != nil {

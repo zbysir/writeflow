@@ -164,7 +164,7 @@ func (g *Git) Pull(remote string, branch string, force bool) error {
 		}
 	}
 
-	// reset Head
+	// reset to Head
 	head, err := g.r.Head()
 	if err != nil {
 		return fmt.Errorf("get Head error: %v", err)
@@ -174,7 +174,7 @@ func (g *Git) Pull(remote string, branch string, force bool) error {
 		Mode:   git.HardReset,
 	})
 	if err != nil {
-		return fmt.Errorf("reset error: %v", err)
+		return fmt.Errorf("reset to head '%v' error: %v", head.Hash(), err)
 	}
 	g.log.Infof("reset success")
 

@@ -15,13 +15,14 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 )
 
 // GoPkgPluginManager list all plugin in a dir
 type GoPkgPluginManager struct {
-	cacheFs billy.Filesystem // default is os.TempDir()
+	cacheFs billy.Filesystem // default is os.TempDir() + "/writeflow"
 }
 
 type PluginSource struct {
@@ -30,7 +31,8 @@ type PluginSource struct {
 
 func NewGoPkgPluginManager(cacheFs billy.Filesystem) *GoPkgPluginManager {
 	if cacheFs == nil {
-		cacheFs = osfs.New(os.TempDir())
+		//log.Infof("cachedir: %s", os.TempDir())
+		cacheFs = osfs.New(filepath.Join(os.TempDir(), "writeflow"))
 	}
 	return &GoPkgPluginManager{cacheFs: cacheFs}
 }

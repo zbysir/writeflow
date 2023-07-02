@@ -19,12 +19,12 @@ type Flow struct {
 	sysRepo      repo.System
 	wirteflow    *writeflow.WriteFlow
 	ws           *ws.WsHub
-	pluginStatus []PluginStatus
+	PluginStatus []PluginStatus
 }
 type PluginStatus struct {
 	model.PluginSource
-	Status string
-	Error  string
+	Status string `json:"status"`
+	Error  string `json:"error"`
 }
 
 func NewFlow(flowRepo repo.Flow, sysRepo repo.System) (*Flow, error) {
@@ -55,7 +55,7 @@ func (u *Flow) ReloadWriteFlow(ctx context.Context) error {
 	}
 
 	// 加载插件
-	u.pluginStatus = []PluginStatus{}
+	u.PluginStatus = []PluginStatus{}
 	pm := writeflow.NewGoPkgPluginManager(nil)
 
 	// 设置一个默认的插件
@@ -66,35 +66,43 @@ func (u *Flow) ReloadWriteFlow(ctx context.Context) error {
 				Enable: true,
 			},
 		}
+		_ = u.sysRepo.SaveSetting(ctx, setting)
 	}
 	for _, p := range setting.Plugins {
 		if p.Enable == false {
 			continue
 		}
 
+		log.Infof("loading plugin '%+v'", p.Url)
 		plug, err := pm.Load(p.Url)
 		if err != nil {
-			u.pluginStatus = append(u.pluginStatus, PluginStatus{
+			u.PluginStatus = append(u.PluginStatus, PluginStatus{
 				PluginSource: p,
 				Status:       "error",
 				Error:        err.Error(),
 			})
+			log.Errorf("register plugin '%+v' error: %v", p.Url, err)
+			continue
 		} else {
 			err = plug.Register(wf)
 			if err != nil {
-				u.pluginStatus = append(u.pluginStatus, PluginStatus{
+				u.PluginStatus = append(u.PluginStatus, PluginStatus{
 					PluginSource: p,
 					Status:       "error",
 					Error:        err.Error(),
 				})
+				log.Errorf("register plugin '%+v' error: %v", p.Url, err)
+				continue
 			} else {
-				u.pluginStatus = append(u.pluginStatus, PluginStatus{
+				u.PluginStatus = append(u.PluginStatus, PluginStatus{
 					PluginSource: p,
 					Status:       "enable",
 					Error:        "",
 				})
 			}
 		}
+
+		log.Infof("register plugin '%+v' success", p.Url)
 	}
 
 	u.wirteflow = wf
