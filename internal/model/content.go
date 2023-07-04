@@ -34,9 +34,10 @@ type Document struct {
 	Title           string          `json:"title"`
 	Source          DocumentSource  `json:"source" xorm:"json"`
 	EmbeddingStatus EmbeddingStatus `json:"embedding_status"`
-	Fragments       []Fragment      `json:"fragments" xorm:"-"`
 	CreatedAt       time.Time       `json:"created_at" xorm:"created"`
 	UpdatedAt       time.Time       `json:"updated_at" xorm:"updated"`
+
+	Fragments []Fragment `json:"fragments" xorm:"-"`
 }
 
 // Fragment 学习好的片段
@@ -48,10 +49,10 @@ type Fragment struct {
 	StartIndex int       `json:"start_index"`
 	EndIndex   int       `json:"end_index"`
 	Vector     []float32 `json:"vector"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-
-	Similarity float64 `json:"similarity" xorm:"->"`
+	CreatedAt  time.Time `json:"created_at" xorm:"created"`
+	UpdatedAt  time.Time `json:"updated_at" xorm:"updated"`
+	Md5        string    `json:"md5"`
+	Similarity float64   `json:"similarity" xorm:"->"`
 }
 
 type TaskLog struct {

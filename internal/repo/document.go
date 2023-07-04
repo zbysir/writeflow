@@ -27,15 +27,15 @@ type SearchFragmentParams struct {
 	Limit       int       `json:"limit"`
 }
 type GetArticleListParams struct {
-	BookIds     []int64 `json:"book_ids"`
-	CategoryIds []int64 `json:"category_ids"`
-	Offset      int     `json:"offset"`
-	Limit       int     `json:"limit"`
+	BookIds     []int64 `json:"book_ids" form:"book_ids"`
+	CategoryIds []int64 `json:"category_ids" form:"category_ids"`
+	Offset      int     `json:"offset" form:"offset"`
+	Limit       int     `json:"limit" form:"limit"`
 }
 
 type Document interface {
 	GetDocumentList(ctx context.Context, p GetArticleListParams) (cs []model.Document, total int64, err error)
-	// Document = Create + Update
+	// SaveDocument = Create + Update
 	SaveDocument(ctx context.Context, content model.Document) (id int64, err error)
 	DeleteDocument(ctx context.Context, id int64) (err error)
 	SearchDocument(ctx context.Context, p SearchArticleParams) (cs []model.Document, total int64, err error)

@@ -77,7 +77,7 @@ func TestSaveArticle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = s.AsyncEmbedding(ctx, []int64{id})
+	err = s.CreateEmbedding(ctx, []int64{id})
 	if err != nil {
 		t.Fatal(err)
 	}

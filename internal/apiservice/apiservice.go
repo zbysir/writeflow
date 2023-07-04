@@ -29,9 +29,10 @@ type Config struct {
 type ApiService struct {
 	config Config
 
-	flowRepo    repo.Flow
-	sysRepo     repo.System
-	flowUsecase *usecase.Flow
+	flowRepo     repo.Flow
+	sysRepo      repo.System
+	documentRepo repo.Document
+	flowUsecase  *usecase.Flow
 }
 
 type LLMVectorStore struct {
@@ -84,16 +85,18 @@ func NewLLMVectorStoreFactory(documentRepo repo.Document) *LLMVectorStoreFactory
 	return &LLMVectorStoreFactory{documentRepo: documentRepo}
 }
 
-func NewApiService(config Config, flowRepo repo.Flow, sysRepo repo.System, documentRepo repo.Document) (*ApiService, error) {
+func NewApiService(config Config, flowRepo repo.Flow, sysRepo repo.System,
+	documentRepo repo.Document) (*ApiService, error) {
 	flow, err := usecase.NewFlow(flowRepo, sysRepo, NewLLMVectorStoreFactory(documentRepo))
 	if err != nil {
 		return nil, err
 	}
 	return &ApiService{
-		config:      config,
-		flowRepo:    flowRepo,
-		flowUsecase: flow,
-		sysRepo:     sysRepo,
+		config:       config,
+		flowRepo:     flowRepo,
+		flowUsecase:  flow,
+		sysRepo:      sysRepo,
+		documentRepo: documentRepo,
 	}, nil
 }
 
@@ -283,6 +286,7 @@ func (a *ApiService) Run(ctx context.Context, addr string) (err error) {
 
 	a.RegisterFlow(apiAuth)
 	a.RegisterSys(apiAuth)
+	a.RegisterDocument(apiAuth)
 
 	s, err := httpsrv.NewService(addr)
 	if err != nil {

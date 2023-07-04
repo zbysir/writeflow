@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS "public"."fragment"
     "start_index" INTEGER               NULL,
     "end_index"   INTEGER               NULL,
     "vector"      vector(1536),
+    "md5"         VARCHAR(255)          NULL,
     "created_at"  TIMESTAMP             NULL,
     "updated_at"  TIMESTAMP             NULL
 );
+
+-- drop table if exists "public"."fragment";
+-- drop table if exists "public"."document";

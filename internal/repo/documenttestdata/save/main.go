@@ -95,7 +95,7 @@ func main() {
 		panic(err)
 	}
 
-	err = s.AsyncEmbedding(ctx, []int64{id})
+	err = s.CreateEmbedding(ctx, []int64{id})
 	if err != nil {
 		panic(err)
 	}
