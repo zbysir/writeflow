@@ -1,2 +1,2 @@
 dev:
-	DEBUG=true go run ./main.go api
+	PGDB_PASSWORD=123456 DEBUG=true go run ./main.go api

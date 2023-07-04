@@ -16,7 +16,7 @@ import (
 type WsHub struct {
 	conns   map[string]*websocket.Conn
 	history *ttlpool.Pool[[]Message]
-	l sync.Mutex
+	l       sync.Mutex
 }
 
 type Message []byte

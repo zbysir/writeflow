@@ -10,16 +10,19 @@ import (
 	"github.com/zbysir/writeflow/internal/pkg/ws"
 	"github.com/zbysir/writeflow/internal/repo"
 	"github.com/zbysir/writeflow/pkg/modules/builtin"
+	"github.com/zbysir/writeflow/pkg/modules/llm"
 	"github.com/zbysir/writeflow/pkg/writeflow"
 	"time"
 )
 
 type Flow struct {
-	flowRepo     repo.Flow
-	sysRepo      repo.System
-	wirteflow    *writeflow.WriteFlow
-	ws           *ws.WsHub
-	PluginStatus []PluginStatus
+	flowRepo repo.Flow
+	sysRepo  repo.System
+	//documentRepo repo.Document
+	vectorStoreFactory llm.VectorStoreFactory
+	wirteflow          *writeflow.WriteFlow
+	ws                 *ws.WsHub
+	PluginStatus       []PluginStatus
 }
 type PluginStatus struct {
 	model.PluginSource
@@ -27,12 +30,14 @@ type PluginStatus struct {
 	Error  string `json:"error"`
 }
 
-func NewFlow(flowRepo repo.Flow, sysRepo repo.System) (*Flow, error) {
+func NewFlow(flowRepo repo.Flow, sysRepo repo.System, vectorStoreFactory llm.VectorStoreFactory) (*Flow, error) {
 	f := &Flow{
-		flowRepo:  flowRepo,
-		wirteflow: nil,
-		sysRepo:   sysRepo,
-		ws:        ws.NewHub(),
+		flowRepo:           flowRepo,
+		sysRepo:            sysRepo,
+		vectorStoreFactory: vectorStoreFactory,
+		wirteflow:          nil,
+		ws:                 ws.NewHub(),
+		PluginStatus:       nil,
 	}
 
 	err := f.ReloadWriteFlow(context.Background())
@@ -48,6 +53,7 @@ func (u *Flow) ReloadWriteFlow(ctx context.Context) error {
 	wf := writeflow.NewWriteFlow()
 
 	wf.RegisterModule(builtin.New())
+	wf.RegisterPlugin(llm.NewLangChain(u.vectorStoreFactory))
 
 	setting, err := u.sysRepo.GetSetting(ctx)
 	if err != nil {
@@ -58,16 +64,6 @@ func (u *Flow) ReloadWriteFlow(ctx context.Context) error {
 	u.PluginStatus = []PluginStatus{}
 	pm := writeflow.NewGoPkgPluginManager(nil)
 
-	// 设置一个默认的插件
-	if len(setting.Plugins) == 0 {
-		setting.Plugins = []model.PluginSource{
-			{
-				Url:    "https://github.com/zbysir/writeflow-plugin-llm",
-				Enable: true,
-			},
-		}
-		_ = u.sysRepo.SaveSetting(ctx, setting)
-	}
 	for _, p := range setting.Plugins {
 		if p.Enable == false {
 			continue

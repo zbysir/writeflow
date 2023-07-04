@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/spf13/cast"
 	"github.com/zbysir/writeflow/internal/pkg/auth"
 	"github.com/zbysir/writeflow/internal/pkg/config"
 	"github.com/zbysir/writeflow/internal/pkg/http_file_server"
@@ -13,6 +14,7 @@ import (
 	"github.com/zbysir/writeflow/internal/pkg/log"
 	"github.com/zbysir/writeflow/internal/repo"
 	"github.com/zbysir/writeflow/internal/usecase"
+	"github.com/zbysir/writeflow/pkg/modules/llm"
 	"github.com/zbysir/writeflow/pkg/writeflowui"
 	"net/http"
 	"net/url"
@@ -32,8 +34,58 @@ type ApiService struct {
 	flowUsecase *usecase.Flow
 }
 
-func NewApiService(config Config, flowRepo repo.Flow, sysRepo repo.System) (*ApiService, error) {
-	flow, err := usecase.NewFlow(flowRepo, sysRepo)
+type LLMVectorStore struct {
+	documentRepo repo.Document
+	bookId       int64
+}
+
+func (L *LLMVectorStore) SimilaritySearch(ctx context.Context, p llm.SimilaritySearchParams) (fs []llm.Fragment, err error) {
+	var bookIds []int64
+	if L.bookId != 0 {
+		bookIds = []int64{L.bookId}
+	}
+	ss, err := L.documentRepo.SearchFragment(ctx, repo.SearchFragmentParams{
+		Keyword:     "",
+		Embedding:   p.Vector,
+		DocumentIds: nil,
+		MaxDistance: 0,
+		Offset:      0,
+		BookIds:     bookIds,
+		Limit:       p.Number,
+	})
+	if err != nil {
+		return
+	}
+	fs = make([]llm.Fragment, len(ss))
+	for i, v := range ss {
+		fs[i] = llm.Fragment{
+			Body:   v.Body,
+			Meta:   map[string]interface{}{"document_id": v.DocumentId},
+			Vector: v.Vector,
+		}
+	}
+
+	return
+}
+
+type LLMVectorStoreFactory struct {
+	documentRepo repo.Document
+}
+
+func (L *LLMVectorStoreFactory) NewVectorStore(ctx context.Context, config map[string]interface{}) (llm.VectorStore, error) {
+	bookId := cast.ToInt64(config["book_id"])
+	return &LLMVectorStore{
+		documentRepo: L.documentRepo,
+		bookId:       bookId,
+	}, nil
+}
+
+func NewLLMVectorStoreFactory(documentRepo repo.Document) *LLMVectorStoreFactory {
+	return &LLMVectorStoreFactory{documentRepo: documentRepo}
+}
+
+func NewApiService(config Config, flowRepo repo.Flow, sysRepo repo.System, documentRepo repo.Document) (*ApiService, error) {
+	flow, err := usecase.NewFlow(flowRepo, sysRepo, NewLLMVectorStoreFactory(documentRepo))
 	if err != nil {
 		return nil, err
 	}
